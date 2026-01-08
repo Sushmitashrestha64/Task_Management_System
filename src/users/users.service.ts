@@ -38,7 +38,7 @@ export class UsersService {
    async findByEmail(email: string) {
     const user = await this.userRepo.findOne({
       where: { email },
-      select: ['userId', 'email', 'password', 'status', 'verified'],
+      select: ['userId','name', 'email', 'password', 'status', 'verified'],
     });
     return user;
   }
@@ -73,4 +73,15 @@ export class UsersService {
     await this.userRepo.save(user);
     return { message: 'Password updated successfully' };
   }
+
+  async validatePassword(email: string, password: string): Promise<boolean> {
+    const user = await this.findByEmail(email);
+    if (!user || !user.password) {
+      return false;
+    }
+    // if (user.status !== 'ACTIVE' || !user.verified) {
+    //   return false;
+    // }
+    return await bcrypt.compare(password, user.password);
+ } 
 }
