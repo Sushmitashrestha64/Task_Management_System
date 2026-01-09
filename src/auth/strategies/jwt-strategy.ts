@@ -21,7 +21,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
   async validate(payload: any) {
     try {
-      const user: User | null = await this.usersService.findMeById(payload.sub);
+      const user: User | null = await this.usersService.findMeById(payload.userId);
       
       if (!user || user.status !== UserStatus.ACTIVE) {
         console.log('JWT Strategy - User validation failed:', { 

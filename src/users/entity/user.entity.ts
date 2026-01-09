@@ -1,4 +1,8 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+
+import { ProjectMember } from "../../projects/entity/project-member.entity";
+import { Project } from "../../projects/entity/project.entity";
+import { Task } from "../../tasks/entity/task.entity";
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany } from 'typeorm';
 
 export enum UserStatus {
   ACTIVE = 'ACTIVE',
@@ -25,6 +29,15 @@ export class User {
 
   @Column({ type: 'enum', enum: UserStatus, default: UserStatus.ACTIVE })
   status: UserStatus;
+
+  @OneToMany(() => ProjectMember, (projectMember) => projectMember.user)
+  projectMembers: ProjectMember[];
+
+  @OneToMany(() => Project, (project) => project.owner)
+  ownedProjects: Project[];
+
+  @OneToMany(() => Task, (task) => task.assignedTo)
+  assignedTasks: Task[];
 
   @CreateDateColumn()
   createdAt: Date;

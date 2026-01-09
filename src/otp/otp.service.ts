@@ -19,11 +19,10 @@ export class OtpService {
       subject: 'Your OTP Code',
       html: `
           <div style="font-family: Arial, sans-serif; text-align: center;">
-            <h2 style="color: #333;">Verification Code</h2>
+            <h2 style="color: #e87575ff;">Verification Code</h2>
             <p>Use the code below to verify your account. It expires in 10 minutes.</p>
             <h1 style="background: #f4f4f4; padding: 10px; display: inline-block; letter-spacing: 5px;">${otp}</h1>
-          </div>
-        `,
+          </div>`,
     });
 
      await this.otpRepo.upsert(
@@ -33,6 +32,7 @@ export class OtpService {
     return { message: 'Verification code sent to email successfully' };
     } catch (error) {
         console.error('--- MAILER ERROR START ---');
+
         console.error(error);
         console.error('--- MAILER ERROR END ---');
       throw new InternalServerErrorException(`Failed to send OTP email: ${error.message}`);
