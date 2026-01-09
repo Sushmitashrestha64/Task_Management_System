@@ -1,45 +1,62 @@
-import { BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post,  } from '@nestjs/common';
+import { ApiTags, ApiBody, ApiBearerAuth } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { User } from '../common/decorators/user.decorator';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdatePasswordDto } from './dto/update-password';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { Auth } from 'src/common/decorators/auth.decorator';
+import { VerifyOtpDto } from 'src/otp/dto/verify-otp.dto';
 
+@ApiTags('Users')
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Post('register')
+  @ApiBody({ type: CreateUserDto })
   async register(@Body() createUserDto: CreateUserDto) {
     return this.usersService.createUser(createUserDto);
   }
 
+  @Post('verify-email')
+  @ApiBody({ type: VerifyOtpDto })
+  async verifyEmail(@Body() verifyOtpDto: VerifyOtpDto) {
+    return this.usersService.verifyUserEmail(verifyOtpDto.email, verifyOtpDto.otp);
+  }
+
   @Auth()
+  @ApiBearerAuth()
   @Get('profile')
   getMe(@User() user) {
       return user;
     }
+
   @Auth()
+  @ApiBearerAuth()
   @Get('profile/me/:id')
-  async getProfile(@User('id') userId: string) {
+  async getProfile(@User('userId') userId: string) {
       return this.usersService.findMeById(userId);  
   }
   
   @Auth()
+  @ApiBearerAuth()
   @Patch('profile/me')
-  async updateUserProfile(@User('id') userId: string, @Body() updateUserDto: UpdateUserDto,) {
+  @ApiBody({ type: UpdateUserDto })
+  async updateUserProfile(@User('userId') userId: string, @Body() updateUserDto: UpdateUserDto,) {
     return this.usersService.updateProfile(userId, updateUserDto);
   }
   
   @Auth()
+  @ApiBearerAuth()
   @Patch(':id/password')
+  @ApiBody({ type: UpdatePasswordDto })
   async updatePassword(@Param('id') id: string, @Body() updatePasswordDto: UpdatePasswordDto,) {
       return  this.usersService.updatePassword(id, updatePasswordDto);
     }
   
   @Auth()
+  @ApiBearerAuth()
   @Delete(':id')
   deleteUser(@Param('id') id: string) {
       return this.usersService.delete(id);

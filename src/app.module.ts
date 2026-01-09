@@ -11,6 +11,8 @@ import { UsersModule } from './users/users.module';
 import { ProjectsModule } from './projects/projects.module';
 import { TasksModule } from './tasks/tasks.module';
 import { User } from './users/entity/user.entity';
+import { OtpModule } from './otp/otp.module';
+import { MailerModule } from '@nestjs-modules/mailer';
 
 @Module({
   imports: [
@@ -18,6 +20,24 @@ import { User } from './users/entity/user.entity';
     isGlobal: true,
     load: [configuration],
   }),
+   MailerModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        transport: {
+          host: config.get('MAIL_HOST'),
+          port: config.get('MAIL_PORT'),
+          secure: false, 
+          auth: {
+            user: config.get('MAIL_USER'),
+            pass: config.get('MAIL_PASS'),
+          },
+          tls:{ rejectUnauthorized: false },
+        },
+        defaults: {
+          from: config.get('MAIL_FROM'),
+        },
+      }),
+    }),
    TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -28,7 +48,7 @@ import { User } from './users/entity/user.entity';
         username: configService.get<string>('DATABASE_USER'),
         password: configService.get<string>('DATABASE_PASSWORD'),
         database: configService.get<string>('DATABASE_NAME'),
-        entities: [User],
+        entities: [User, __dirname + '/**/*.entity{.ts,.js}'],
         synchronize: configService.get<string>('NODE_ENV') !== 'production',
         ssl: configService.get<string>('NODE_ENV') === 'production' ? { rejectUnauthorized: false } : false,
       }),
@@ -50,7 +70,7 @@ import { User } from './users/entity/user.entity';
       }),
     }),
 
-    AuthModule, UsersModule, ProjectsModule, TasksModule],
+    AuthModule, UsersModule, ProjectsModule, TasksModule, OtpModule],
   controllers: [AppController],
   providers: [AppService],
 })
