@@ -34,7 +34,7 @@ export class UsersController {
 
   @Auth()
   @ApiBearerAuth()
-  @Get('profile/me/:id')
+  @Get('profile/me/:userId')
   async getProfile(@User('userId') userId: string) {
       return this.usersService.findMeById(userId);  
   }
@@ -49,17 +49,17 @@ export class UsersController {
   
   @Auth()
   @ApiBearerAuth()
-  @Patch(':id/password')
+  @Patch(':userId/password')
   @ApiBody({ type: UpdatePasswordDto })
-  async updatePassword(@Param('id') id: string, @Body() updatePasswordDto: UpdatePasswordDto,) {
-      return  this.usersService.updatePassword(id, updatePasswordDto);
+  async updatePassword(@Param('userId') userId: string, @Body() updatePasswordDto: UpdatePasswordDto,) {
+      return  this.usersService.updatePassword(userId, updatePasswordDto);
     }
   
   @Auth()
   @ApiBearerAuth()
-  @Delete(':id')
-  deleteUser(@Param('id') id: string) {
-      return this.usersService.delete(id);
+  @Delete(':userId')
+  deleteUser(@Param('userId') userId: string) {
+      return this.usersService.delete(userId);
     }
 
 }
