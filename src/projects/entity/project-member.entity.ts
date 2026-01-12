@@ -16,10 +16,10 @@ export class ProjectMember {
   @PrimaryGeneratedColumn('uuid')
   roleId: string;
 
-  @Column()
+  @Column('uuid')
   userId: string;
 
-  @Column()
+  @Column('uuid')
   projectId: string;
 
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
@@ -39,3 +39,6 @@ export class ProjectMember {
   @UpdateDateColumn()
   updatedAt: Date;
 }
+
+
+

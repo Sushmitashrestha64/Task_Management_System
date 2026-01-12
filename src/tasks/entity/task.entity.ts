@@ -53,7 +53,7 @@ export class Task {
   @JoinColumn({ name: 'assignedToId' })
   assignedTo: User;
 
-  @Column({ nullable: true })
+  @Column({ nullable: true , type: 'uuid'})
   assignedToId: string;
 
   @CreateDateColumn()

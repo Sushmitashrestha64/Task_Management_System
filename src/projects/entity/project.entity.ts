@@ -3,7 +3,7 @@ import { ProjectMember } from './project-member.entity';
 import { Task } from '../../tasks/entity/task.entity';
 import { User } from '../../users/entity/user.entity';
 
-enum Visibility {
+export enum Visibility {
   PUBLIC = 'PUBLIC',
   PRIVATE = 'PRIVATE',
 }
@@ -22,7 +22,7 @@ export class Project {
   @Column({ type: 'enum', enum: Visibility, default: Visibility.PUBLIC })
   visibility: Visibility;
 
-  @Column()
+  @Column('uuid')
   ownerId: string; 
 
   @OneToMany(() => ProjectMember, (member) => member.project)
