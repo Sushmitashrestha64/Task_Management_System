@@ -10,7 +10,6 @@ import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { ProjectsModule } from './projects/projects.module';
 import { TasksModule } from './tasks/tasks.module';
-import { User } from './users/entity/user.entity';
 import { OtpModule } from './otp/otp.module';
 import { MailerModule } from '@nestjs-modules/mailer';
 
@@ -23,6 +22,7 @@ import { MailerModule } from '@nestjs-modules/mailer';
    MailerModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
+        isGlobal: true,
         transport: {
           host: config.get('MAIL_HOST'),
           port: config.get('MAIL_PORT'),

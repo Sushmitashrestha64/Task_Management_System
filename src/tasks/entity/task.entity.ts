@@ -45,6 +45,9 @@ export class Task {
   @Column({ type: 'timestamp', nullable: true })
   dueDate: Date;
 
+  @Column({ type: 'uuid' })
+  projectId: string;
+
   @ManyToOne(() => Project, (project) => project.tasks, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'projectId' })
   project: Project;

@@ -121,6 +121,7 @@ export class ProjectsService {
 
     const existingMember = await this.projectMemberRepo.findOne({
     where: {  project:{projectId}, user: { email: dto.email } }, 
+    relations: ['user'],
     });
     if (existingMember) {
       throw new ForbiddenException('User is already a member of this project');
@@ -178,11 +179,6 @@ export class ProjectsService {
     }catch(error){  
         throw new BadRequestException('Invalid or expired invitation token');
     }
-  }
-
-  async checkUserRole(projectId: string, userId: string): Promise<ProjectRole|null> {
-    const membership = await this.projectMemberRepo.findOne({ where: { projectId, userId } });
-    return membership ? membership.role : null;
   }
 
   async isMember(projectId: string, userId: string): Promise<boolean> {

@@ -22,7 +22,7 @@ export class Project {
   @Column({ type: 'enum', enum: Visibility, default: Visibility.PUBLIC })
   visibility: Visibility;
 
-  @Column('uuid')
+  @Column({ type: 'uuid' })
   ownerId: string; 
 
   @OneToMany(() => ProjectMember, (member) => member.project)

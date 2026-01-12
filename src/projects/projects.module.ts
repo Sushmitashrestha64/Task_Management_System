@@ -21,6 +21,6 @@ import { TasksModule } from 'src/tasks/tasks.module';
   ],
   controllers: [ProjectsController],
   providers: [ProjectsService],
-  exports: [ProjectsService, TypeOrmModule, JwtModule],
+  exports: [ProjectsService, TypeOrmModule],
 })
 export class ProjectsModule {}

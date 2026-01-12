@@ -1,25 +1,40 @@
-import { CanActivate, ExecutionContext, ForbiddenException, Injectable } from "@nestjs/common";
+import { BadRequestException, CanActivate, ExecutionContext, ForbiddenException, forwardRef, Inject, Injectable } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
 import { ProjectRole } from "src/projects/entity/project-member.entity";
 import { ProjectsService } from "src/projects/projects.service";
 import { ROLES_KEY } from "../decorators/roles.decorators";
+import { TasksService } from "src/tasks/tasks.service";
 
 @Injectable()
 export class RolesGuard implements CanActivate {
   constructor(
     private reflector: Reflector,
+    @Inject(forwardRef(() => ProjectsService))
     private projectsService: ProjectsService,
+    @Inject(forwardRef(() => TasksService))
+    private tasksService: TasksService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const requiredRoles = this.reflector.get<ProjectRole[]>(ROLES_KEY, context.getHandler());
+    const requiredRoles = this.reflector.getAllAndOverride<ProjectRole[]>(ROLES_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
     if (!requiredRoles) return true;
 
     const request = context.switchToHttp().getRequest();
     const user = request.user;
 
 
-    const projectId = request.params.projectId || request.body.projectId || request.query.projectId;
+    let projectId = request.params.projectId || request.body.projectId || request.query.projectId;
+    if (!projectId && request.params.taskId) {
+        const task = await this.tasksService.getTaskById(request.params.taskId);
+        if(!task) {
+            throw new BadRequestException('Task not found');
+        }
+        projectId = task.projectId;
+    }
+
     if (!projectId) {
         throw new ForbiddenException('Project ID is missing');
     }
@@ -30,7 +45,7 @@ export class RolesGuard implements CanActivate {
     }
 
     request.projectRole = membership.role;
-    
+
     return requiredRoles.includes(membership.role);
   }
 }
