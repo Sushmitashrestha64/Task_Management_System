@@ -1,17 +1,24 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, forwardRef, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Task } from './entity/task.entity';
 import { Repository } from 'typeorm';
 import { CreateTaskDto, UpdateTaskDto, UpdateTaskStatusDto } from './dto/task.dto';
+import { ProjectsService } from 'src/projects/projects.service';
 
 
 @Injectable()
 export class TasksService {
     constructor(
         @InjectRepository(Task) private readonly taskRepo: Repository<Task>,
+        @Inject(forwardRef(() => ProjectsService)) private readonly projectsService: ProjectsService,
     ) {}
 
-    async createTask(dto: CreateTaskDto): Promise<Task> {
+    async createTask(dto: CreateTaskDto, userId: string): Promise<Task> {
+       const isMember = await this.projectsService.getMemberRole(dto.projectId, userId);
+         if (!isMember) {
+            throw new ForbiddenException('You are not a member of this project');
+        }
+       
         const task = this.taskRepo.create(dto);
         return this.taskRepo.save(task);
     }

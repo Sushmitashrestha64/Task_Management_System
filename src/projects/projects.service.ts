@@ -180,9 +180,4 @@ export class ProjectsService {
         throw new BadRequestException('Invalid or expired invitation token');
     }
   }
-
-  async isMember(projectId: string, userId: string): Promise<boolean> {
-    const count = await this.projectMemberRepo.count({ where: { projectId, userId } });
-    return count > 0;
-  }
 }
