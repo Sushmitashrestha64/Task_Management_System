@@ -4,6 +4,7 @@ import { Task } from './entity/task.entity';
 import { Repository } from 'typeorm';
 import { CreateTaskDto, UpdateTaskDto, UpdateTaskStatusDto } from './dto/task.dto';
 import { ProjectsService } from 'src/projects/projects.service';
+import { ProjectRole } from 'src/projects/entity/project-member.entity';
 
 
 @Injectable()
@@ -24,10 +25,13 @@ export class TasksService {
     }
 
     async getTaskById(taskId: string): Promise<Task> {
-        const task = await this.taskRepo.findOne({ where: { taskId } });
+        const task = await this.taskRepo.findOne({ where: { taskId },
+        relations: ['project'],
+     });
         if (!task) {
             throw new NotFoundException('Task not found');
         }
+
         return task;
     }
 
@@ -39,16 +43,23 @@ export class TasksService {
 
     async updateTaskStatus(taskId: string, userId: string, dto:UpdateTaskStatusDto){
         const task = await this.getTaskById(taskId);
-        if(task.assignedToId !== userId){
-            throw new ForbiddenException('Only the assigned user can update the status of this task');
+        const member = await this.projectsService.getMemberRole(task.projectId, userId);
+        if (!member) {
+            throw new ForbiddenException('You are not a member of this project');
         }
-        task.status = dto.status;
-        return this.taskRepo.save(task);
+        const role = member.role;
+        const accessibleRoles = [ProjectRole.ADMIN, ProjectRole.PROJECT_MANAGER, ProjectRole.LEAD];
+        if (accessibleRoles.includes(role) || task.assignedToId === userId) {
+            task.status = dto.status;
+            return this.taskRepo.save(task);
+        } else {
+            throw new ForbiddenException('You do not have permission to update the task status');
+        }
     }
 
     async deleteTask(taskId: string){
         const task = await this.getTaskById(taskId);
         await this.taskRepo.remove(task);
-        return{ message: 'Task deleted successfully' };
+        return{ message: 'Task deleted successfully'};
     }
 }

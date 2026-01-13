@@ -6,6 +6,8 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { OtpModule } from 'src/otp/otp.module';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { TasksModule } from 'src/tasks/tasks.module';
+import { ProjectsModule } from 'src/projects/projects.module';
 
 @Module({
   imports: [
@@ -19,6 +21,8 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
         signOptions:{expiresIn:'1d'},
       }),
     }),
+    forwardRef(() => ProjectsModule), 
+    forwardRef(() => TasksModule),
   ],
   controllers: [UsersController],
   providers: [UsersService],

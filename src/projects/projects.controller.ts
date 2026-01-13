@@ -5,7 +5,6 @@ import { User } from 'src/common/decorators/user.decorator';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Auth } from 'src/common/decorators/auth.decorator';
 import { RolesGuard } from 'src/common/guards/roles.guard';
-import { Roles } from 'src/common/decorators/roles.decorators';
 import { ProjectRole } from './entity/project-member.entity';
 
 
@@ -38,9 +37,7 @@ export class ProjectsController {
     return this.projectsService.getProjectById(projectId, userId);
   }
 
-  @Auth()
-  @Roles(ProjectRole.ADMIN)
-  @UseGuards(RolesGuard)
+  @Auth(ProjectRole.ADMIN)
   @ApiOperation({ summary: 'Update project details' })
   @Patch(':projectId')
   update(@User('userId') userId: string,
@@ -49,9 +46,7 @@ export class ProjectsController {
     return this.projectsService.updateProject(projectId, userId, dto);
   }
 
-  @Auth()
-  @Roles(ProjectRole.ADMIN)
-  @UseGuards(RolesGuard)
+  @Auth(ProjectRole.ADMIN)
   @Delete(':projectId')
   @ApiOperation({ summary: 'Delete project' })
   remove(@User('userId') userId: string,
@@ -61,18 +56,14 @@ export class ProjectsController {
 
 
   //member
-  @Auth()
-  @Roles(ProjectRole.ADMIN, ProjectRole.PROJECT_MANAGER)
-  @UseGuards(RolesGuard)
+  @Auth(ProjectRole.ADMIN, ProjectRole.PROJECT_MANAGER)
   @Post(':projectId/members')
   @ApiOperation({ summary: 'Add a member directly' })
   async addMember(@Param('projectId') projectId: string, @Body() dto: AddProjectMemberDto) {
     return this.projectsService.addProjectMember(projectId, dto);
   }
 
-  @Auth()
-  @Roles(ProjectRole.ADMIN, ProjectRole.PROJECT_MANAGER)
-  @UseGuards(RolesGuard)
+  @Auth(ProjectRole.ADMIN, ProjectRole.PROJECT_MANAGER)
   @Patch(':projectId/members/:userId/role')
   @ApiOperation({ summary: 'Change a member role' })
   async changeMemberRole(
@@ -83,9 +74,7 @@ export class ProjectsController {
     return this.projectsService.changeMemberRole(projectId, userId, dto);
   }
 
-  @Auth()
-  @Roles(ProjectRole.ADMIN, ProjectRole.PROJECT_MANAGER)
-  @UseGuards(RolesGuard)
+  @Auth(ProjectRole.ADMIN, ProjectRole.PROJECT_MANAGER)
   @Post(':projectId/invite')
   @ApiOperation({ summary: 'Send email invitation' })
   async inviteMember(@Param('projectId') projectId: string, @Body() dto: InviteMemberDto) {
@@ -93,16 +82,14 @@ export class ProjectsController {
     return { message: 'Invitation sent successfully' };
   }
 
-  @Auth()
-  @Post('invitation/accept')
+  
+  @Post('accept-invitation')
   @ApiOperation({ summary: 'Accept invitation from email link' })
-  acceptInvitation(@User('userId') userId: string, @User('email') email: string, @Query() dto:AcceptInvitationDto) {
-    return this.projectsService.acceptInvitation(userId, email, dto);
+  acceptInvitation(@Query() dto:AcceptInvitationDto) {
+    return this.projectsService.acceptInvitation( dto);
   }
 
-  @Auth()
-  @Roles(ProjectRole.ADMIN, ProjectRole.PROJECT_MANAGER)
-  @UseGuards(RolesGuard)
+  @Auth(ProjectRole.ADMIN, ProjectRole.PROJECT_MANAGER)
   @Delete(':projectId/members/:userId')
   @ApiOperation({ summary: 'Remove a member' })
   removeMember(@Param('projectId') projectId: string, @Param('userId') memberUserId: string) {

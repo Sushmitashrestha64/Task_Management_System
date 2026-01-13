@@ -8,12 +8,14 @@ import { MailerService } from '@nestjs-modules/mailer';
 import { AcceptInvitationDto, AddProjectMemberDto, ChangeMemberRoleDto, CreateProjectDto, InviteMemberDto, UpdateProjectDto } from './dto/project.dto';
 import { Visibility } from './entity/project.entity';
 import { ConfigService } from '@nestjs/config';
+import { User } from 'src/users/entity/user.entity';
 @Injectable()
 export class ProjectsService {
   
   constructor(
     @InjectRepository(Project) private readonly projectRepo: Repository<Project>,
     @InjectRepository(ProjectMember) private readonly projectMemberRepo: Repository<ProjectMember>,
+    @InjectRepository(User) private readonly userRepo: Repository<User>,
     private readonly jwtService: JwtService,
     private readonly mailerService: MailerService,
     private readonly configService: ConfigService,
@@ -60,18 +62,23 @@ export class ProjectsService {
     return this.projectRepo.save(project);
   }
 
-  async deleteProject(projectId: string, userId: string): Promise<void> {
+  async deleteProject(projectId: string, userId: string): Promise<{ message: string }> {
     const project = await this.getProjectById(projectId, userId);
     if (!project) {
       throw new NotFoundException('Project not found');
     }
     await this.projectRepo.remove(project);
+    return{message:'Project deleted successfully' };
  }
 
  // project members
 
   async getMemberRole(projectId: string, userId: string): Promise<ProjectMember|null> {
-   return await this.projectMemberRepo.findOne({ where: { projectId, userId } });
+   const member = await this.projectMemberRepo.findOne({ where: { projectId, userId } });
+   if (!member) {
+      throw new NotFoundException('You are not a member of this project');
+   }
+   return member;
  }
 
   async addProjectMember(projectId: string, dto: AddProjectMemberDto): Promise<ProjectMember> {
@@ -123,11 +130,11 @@ export class ProjectsService {
     where: {  project:{projectId}, user: { email: dto.email } }, 
     relations: ['user'],
     });
-    if (existingMember) {
+    if (existingMember ) {
       throw new ForbiddenException('User is already a member of this project');
     }
 
-    const tokenPayload = { projectId: project.projectId, email: dto.email, role: dto.role };
+    const tokenPayload = { projectId: project.projectId, email: dto.email, role: dto.role,};
     const token = this.jwtService.sign(tokenPayload, {
       secret: this.configService.get('JWT_SECRET'),
       expiresIn: '3d',
@@ -153,18 +160,19 @@ export class ProjectsService {
     }
   }
 
-  async acceptInvitation(userId:string, email:string, dto: AcceptInvitationDto): Promise<ProjectMember> {
+  async acceptInvitation(dto: AcceptInvitationDto): Promise<ProjectMember> {
     try{
         const payload = await this.jwtService.verify<{ projectId: string; email: string; role: string }>(dto.token, {
             secret: this.configService.get('JWT_SECRET'),
         });
-
-        if (payload.email !== email) {
-            throw new ForbiddenException('This invitation was sent to different email');
+        
+        const user = await this.userRepo.findOne({ where: { email: payload.email } });
+        if (!user) {
+            throw new NotFoundException('user not found or email does not match');
         }
-
+        
         const existingMember = await this.projectMemberRepo.findOne({
-            where: { projectId: payload.projectId, userId: userId }, 
+            where: { projectId: payload.projectId, userId: user.userId }, 
         });
         if (existingMember) {
             throw new ForbiddenException('You are already a member of this project');
@@ -172,11 +180,12 @@ export class ProjectsService {
         
         const newMember = this.projectMemberRepo.create({
             projectId: payload.projectId,
-            userId: userId,
+            userId: user.userId,
             role: payload.role as ProjectRole,
         });
         return this.projectMemberRepo.save(newMember);
     }catch(error){  
+        if (error instanceof ForbiddenException) throw error;
         throw new BadRequestException('Invalid or expired invitation token');
     }
   }

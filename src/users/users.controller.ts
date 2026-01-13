@@ -24,13 +24,12 @@ export class UsersController {
   async verifyEmail(@Body() verifyOtpDto: VerifyOtpDto) {
     return this.usersService.verifyUserEmail(verifyOtpDto.email, verifyOtpDto.otp);
   }
-
   @Auth()
   @ApiBearerAuth()
   @Get('profile')
   getMe(@User() user) {
       return user;
-    }
+  }
 
   @Auth()
   @ApiBearerAuth()
@@ -61,6 +60,5 @@ export class UsersController {
   deleteUser(@Param('userId') userId: string) {
       return this.usersService.delete(userId);
     }
-
 }
 

@@ -15,14 +15,13 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey:configService.get<string>('JWT_SECRET') || '@mySecretKey@',
+      secretOrKey:configService.getOrThrow<string>('JWT_SECRET'),
     });
   }
 
   async validate(payload: any) {
     try {
       const user: User | null = await this.usersService.findMeById(payload.userId);
-      
       if (!user || user.status !== UserStatus.ACTIVE) {
         console.log('JWT Strategy - User validation failed:', { 
           userExists: !!user, 
@@ -30,7 +29,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         });
         throw new UnauthorizedException('Invalid token');
       }
-      
       return user;
     } catch (error) {
       console.log('JWT validation error:', error.message);

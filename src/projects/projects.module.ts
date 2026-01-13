@@ -7,9 +7,10 @@ import { ProjectMember } from './entity/project-member.entity';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { TasksModule } from 'src/tasks/tasks.module';
+import { User } from 'src/users/entity/user.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Project, ProjectMember]),
+  imports: [TypeOrmModule.forFeature([Project, ProjectMember, User]),
     JwtModule.registerAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
