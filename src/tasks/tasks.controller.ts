@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { TasksService } from './tasks.service';
 import { CreateTaskDto, UpdateTaskDto, UpdateTaskStatusDto } from './dto/task.dto';
 import { User } from 'src/common/decorators/user.decorator';
@@ -43,5 +43,12 @@ export class TasksController {
   @ApiOperation({ summary: 'Delete task' })
   async deleteTask(@Param('taskId') taskId: string) {
     return this.tasksService.deleteTask(taskId);
+  }
+
+  @Auth()
+  @Get('my-tasks')
+  @ApiOperation({ summary: 'Get my tasks' })
+  async getMyTasks(@User('userId') userId: string) {
+    return this.tasksService.getMyTasks(userId);
   }
 }

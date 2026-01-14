@@ -1,9 +1,10 @@
-import { Module } from '@nestjs/common';
+import { Inject, Logger, MiddlewareConsumer, Module, NestModule, OnModuleInit } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import configuration from './config/configuration';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { CacheModule } from '@nestjs/cache-manager';
-import { redisStore } from 'cache-manager-redis-yet';
+import { CACHE_MANAGER, CacheModule } from '@nestjs/cache-manager';
+import type { Cache } from 'cache-manager';
+import * as redisStore from 'cache-manager-redis-store';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
@@ -12,6 +13,9 @@ import { ProjectsModule } from './projects/projects.module';
 import { TasksModule } from './tasks/tasks.module';
 import { OtpModule } from './otp/otp.module';
 import { MailerModule } from '@nestjs-modules/mailer';
+import { DataSource } from 'typeorm';
+import { LoggerMiddleware } from './common/middleware/logger/logger.middleware';
+import { RequestIdMiddleware } from './common/middleware/request-id/request-id.middleware';
 
 @Module({
   imports: [
@@ -57,21 +61,69 @@ import { MailerModule } from '@nestjs-modules/mailer';
       isGlobal: true,
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: async (configService: ConfigService) => ({
-        store: await redisStore({
-          socket: {
-            host: configService.get<string>('REDIS_HOST'),
-            port: configService.get<number>('REDIS_PORT'),
-          },
-          username: configService.get<string>('REDIS_USERNAME'),
-          password: configService.get<string>('REDIS_PASSWORD'),
-        }), 
-        ttl: configService.get<number>('REDIS_TTL'),
-      }),
-    }),
-
+      useFactory: (configService: ConfigService) => ({
+        store: redisStore,                      
+        host: configService.get<string>('REDIS_HOST'),
+        port: configService.get<number>('REDIS_PORT'),
+        auth_pass: configService.get<string>('REDIS_PASSWORD'),
+        ttl: configService.get<number>('REDIS_TTL'), 
+  }),
+}),
     AuthModule, UsersModule, ProjectsModule, TasksModule, OtpModule],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+
+export class AppModule implements NestModule, OnModuleInit {
+  private readonly logger = new Logger(AppModule.name);
+
+  constructor(
+    private dataSource: DataSource,
+    @Inject(CACHE_MANAGER) private cache: Cache,
+    private configService: ConfigService,
+  ) {}
+
+  async onModuleInit() {
+    const redisHost = this.configService.get<string>('REDIS_HOST');
+    const redisPort = this.configService.get<number>('REDIS_PORT');
+    
+    this.logger.log(`Attempting to connect to Redis at ${redisHost}:${redisPort}...`);
+    
+    try {
+      const stores: any = this.cache.stores || [];
+      const store = stores[0];
+      const storeType = store?.constructor?.name || 'Unknown';
+      this.logger.log(`Cache Store Type: ${storeType}`);
+      
+      const testKey = 'redis:health:check';
+      const testValue = `ok-${Date.now()}`;
+      
+      await this.cache.set(testKey, testValue, 10);
+      const retrievedValue = await this.cache.get(testKey);
+
+      if (retrievedValue === testValue) {
+        this.logger.log(` Redis connection successful at ${redisHost}:${redisPort}`);
+        this.logger.log(` Redis cache is operational and responding correctly`);
+
+        if (store?.client) {
+          this.logger.log(`Using actual Redis client (not in-memory)`);
+        } else {
+          this.logger.warn(`No Redis client found - may be using in-memory cache`);
+        }
+      } else {
+        this.logger.warn(`Redis connected but value mismatch. Expected: ${testValue}, Got: ${retrievedValue}`);
+      }
+    } catch (error) {
+      this.logger.error(
+        `✗ Redis connection failed at ${redisHost}:${redisPort} — fallback to in-memory cache`,
+        error.stack,
+      );
+    }
+  }
+
+  configure(consumer: MiddlewareConsumer) {
+    consumer
+      .apply(LoggerMiddleware, RequestIdMiddleware)
+      .forRoutes('*');
+  }
+}
