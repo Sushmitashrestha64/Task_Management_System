@@ -16,6 +16,8 @@ import { MailerModule } from '@nestjs-modules/mailer';
 import { DataSource } from 'typeorm';
 import { LoggerMiddleware } from './common/middleware/logger/logger.middleware';
 import { RequestIdMiddleware } from './common/middleware/request-id/request-id.middleware';
+import { ReportModule } from './report/report.module';
+import { B2Module } from './b2/b2.module';
 
 @Module({
   imports: [
@@ -69,7 +71,7 @@ import { RequestIdMiddleware } from './common/middleware/request-id/request-id.m
         ttl: configService.get<number>('REDIS_TTL'), 
   }),
 }),
-    AuthModule, UsersModule, ProjectsModule, TasksModule, OtpModule],
+    AuthModule, UsersModule, ProjectsModule, TasksModule, OtpModule, ReportModule, B2Module],
   controllers: [AppController],
   providers: [AppService],
 })

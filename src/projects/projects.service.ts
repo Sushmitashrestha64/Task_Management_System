@@ -13,6 +13,8 @@ import { CACHE_MANAGER} from '@nestjs/cache-manager';
 import type { Cache } from 'cache-manager';
 import { randomBytes } from 'crypto';
 import * as bcrypt from 'bcrypt';
+import { TasksService } from 'src/tasks/tasks.service';
+
 
 
 @Injectable()
@@ -26,6 +28,7 @@ export class ProjectsService {
     private readonly jwtService: JwtService,
     private readonly mailerService: MailerService,
     private readonly configService: ConfigService,
+    private readonly tasksService: TasksService,
 ) {}
   
    async createProject(userId:string, dto:CreateProjectDto): Promise<Project> {

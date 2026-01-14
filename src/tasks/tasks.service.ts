@@ -1,7 +1,7 @@
 import { ForbiddenException, forwardRef, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Task } from './entity/task.entity';
-import { Repository } from 'typeorm';
+import { Between, LessThan, LessThanOrEqual, MoreThanOrEqual, Repository } from 'typeorm';
 import { CreateTaskDto, UpdateTaskDto, UpdateTaskStatusDto } from './dto/task.dto';
 import { ProjectsService } from 'src/projects/projects.service';
 import { ProjectRole } from 'src/projects/entity/project-member.entity';
@@ -94,7 +94,24 @@ export class TasksService {
          if (tasks.length === 0) {
         return { message: 'You do not have any assigned tasks' };
     }
+        return tasks;
+    }
 
+    async getTaskByTimeframe(projectId: string, startDate?: string, endDate?: string): Promise<Task[]> {
+        const where: any = { projectId };
+        if (startDate && endDate) {
+            where.createdAt = Between(new Date(startDate), new Date(endDate));
+        } else if (startDate) {
+            where.createdAt = MoreThanOrEqual(new Date(startDate));
+        }
+        else if (endDate) {
+            where.createdAt = LessThanOrEqual(new Date(endDate));
+        }
+        const tasks = await this.taskRepo.find({
+            where,
+            relations: ['project'],
+            order: { createdAt: 'DESC' }
+         });
         return tasks;
     }
 }
