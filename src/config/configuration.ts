@@ -17,4 +17,12 @@ export default () => ({
     password: process.env.REDIS_PASSWORD,
     ttl: parseInt(process.env.REDIS_TTL || '3600', 10),
   },
+
+  b2: {
+    applicationKeyId: process.env.B2_APP_KEY_ID,
+    applicationKey: process.env.B2_APP_KEY,
+    bucketId: process.env.B2_BUCKET_ID,
+    bucketName: process.env.B2_BUCKET_NAME,
+    downloadUrl: process.env.B2_DOWNLOAD_URL,
+  },
 });

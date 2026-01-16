@@ -16,7 +16,7 @@ export enum TaskPriority {
   HIGH = 'HIGH',
 }
 
-export enum Servirity{
+export enum Severity {
     MINOR = 'MINOR',
     MAJOR = 'MAJOR',
     CRITICAL = 'CRITICAL',
@@ -39,8 +39,8 @@ export class Task {
   @Column({ type: 'enum', enum: TaskPriority, default: TaskPriority.MEDIUM })
   priority: TaskPriority;
 
-  @Column({ type: 'enum', enum: Servirity, default: Servirity.MINOR })
-  servirity: Servirity; 
+  @Column({ type: 'enum', enum: Severity, default: Severity.MINOR })
+  severity: Severity; 
 
   @Column({ type: 'timestamp', nullable: true })
   dueDate: Date;

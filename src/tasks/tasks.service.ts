@@ -1,7 +1,7 @@
 import { ForbiddenException, forwardRef, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Task } from './entity/task.entity';
-import { Between, LessThan, LessThanOrEqual, MoreThanOrEqual, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import { CreateTaskDto, UpdateTaskDto, UpdateTaskStatusDto } from './dto/task.dto';
 import { ProjectsService } from 'src/projects/projects.service';
 import { ProjectRole } from 'src/projects/entity/project-member.entity';
@@ -39,7 +39,7 @@ export class TasksService {
         }
         const task = await this.taskRepo.findOne({ where: { taskId },
         relations: ['project'],
-     });
+    });
         if (!task) {
             throw new NotFoundException('Task not found');
         }
@@ -97,21 +97,23 @@ export class TasksService {
         return tasks;
     }
 
-    async getTaskByTimeframe(projectId: string, startDate?: string, endDate?: string): Promise<Task[]> {
-        const where: any = { projectId };
-        if (startDate && endDate) {
-            where.createdAt = Between(new Date(startDate), new Date(endDate));
-        } else if (startDate) {
-            where.createdAt = MoreThanOrEqual(new Date(startDate));
+    async getTaskByTimeframe(projectId: string, startDate?: string, endDate?: string) {
+        const query = this.taskRepo.createQueryBuilder('task')
+        .leftJoinAndSelect('task.assignedTo', 'user') 
+        .where('task.projectId = :projectId', { projectId });
+
+        if (startDate) {
+        query.andWhere('task.createdAt >= :startDate', { startDate: new Date(startDate) });
         }
-        else if (endDate) {
-            where.createdAt = LessThanOrEqual(new Date(endDate));
+        
+        if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        query.andWhere('task.createdAt <= :endDate', { endDate: end });
         }
-        const tasks = await this.taskRepo.find({
-            where,
-            relations: ['project'],
-            order: { createdAt: 'DESC' }
-         });
+
+        const tasks = await query.getMany();
+        console.log(`[TasksService] Found ${tasks.length} tasks for Project: ${projectId}`);
         return tasks;
-    }
+  }
 }

@@ -1,6 +1,6 @@
 import { IsString, IsNotEmpty, IsOptional, IsEnum, IsUUID, IsDateString } from 'class-validator';
 import { ApiProperty, PartialType } from '@nestjs/swagger';
-import { TaskStatus, TaskPriority, Servirity } from '../entity/task.entity';
+import { TaskStatus, TaskPriority, Severity } from '../entity/task.entity';
 
 export class CreateTaskDto {
   @ApiProperty({ example: 'Fix Login Bug' })
@@ -23,10 +23,10 @@ export class CreateTaskDto {
   @IsNotEmpty()
   priority: TaskPriority;
 
-  @ApiProperty({ enum: Servirity, example: Servirity.MAJOR })
-  @IsEnum(Servirity)
+  @ApiProperty({ enum: Severity, example: Severity.MAJOR })
+  @IsEnum(Severity)
   @IsNotEmpty()
-  servirity: Servirity;
+  severity: Severity;
 
   @ApiProperty({ required: false, example: '2025-12-31T23:59:59Z' })
   @IsDateString()
