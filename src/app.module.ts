@@ -18,9 +18,15 @@ import { LoggerMiddleware } from './common/middleware/logger/logger.middleware';
 import { RequestIdMiddleware } from './common/middleware/request-id/request-id.middleware';
 import { ReportModule } from './report/report.module';
 import { B2Module } from './b2/b2.module';
+import { ScheduleModule } from '@nestjs/schedule';
+import{ CleanupService } from './common/softdelete/cleanup.service';
+import { Task } from './tasks/entity/task.entity';
+import { Project } from './projects/entity/project.entity';
 
 @Module({
   imports: [
+  ScheduleModule.forRoot(),
+  TypeOrmModule.forFeature([Project, Task]),
   ConfigModule.forRoot({
     isGlobal: true,
     load: [configuration],
@@ -73,7 +79,7 @@ import { B2Module } from './b2/b2.module';
 }),
     AuthModule, UsersModule, ProjectsModule, TasksModule, OtpModule, ReportModule, B2Module],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, CleanupService],
 })
 
 export class AppModule implements NestModule, OnModuleInit {

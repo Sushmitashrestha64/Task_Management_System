@@ -59,6 +59,13 @@ export class Task {
   @Column({ nullable: true , type: 'uuid'})
   assignedToId: string;
 
+  @Column({ default: false })
+  isDeleted: boolean;
+
+  
+  @Column({ type: 'timestamp', nullable: true })
+  deletedAt: Date | null; 
+
   @CreateDateColumn()
   createdAt: Date;
 

@@ -8,6 +8,8 @@ import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TasksModule } from 'src/tasks/tasks.module';
 import { ProjectsModule } from 'src/projects/projects.module';
+import { Auth } from 'src/common/decorators/auth.decorator';
+import { AuthModule } from 'src/auth/auth.module';
 
 @Module({
   imports: [
@@ -23,6 +25,7 @@ import { ProjectsModule } from 'src/projects/projects.module';
     }),
     forwardRef(() => ProjectsModule), 
     forwardRef(() => TasksModule),
+    forwardRef(() => AuthModule),
   ],
   controllers: [UsersController],
   providers: [UsersService],

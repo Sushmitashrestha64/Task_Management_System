@@ -13,8 +13,8 @@ import { CACHE_MANAGER} from '@nestjs/cache-manager';
 import type { Cache } from 'cache-manager';
 import { randomBytes } from 'crypto';
 import * as bcrypt from 'bcrypt';
-import { TasksService } from 'src/tasks/tasks.service';
 import { PaginationDto } from 'src/common/dto/pagination.dto';
+import { Task } from 'src/tasks/entity/task.entity';
 
 
 
@@ -25,12 +25,12 @@ export class ProjectsService {
   constructor(
     @InjectRepository(Project) private readonly projectRepo: Repository<Project>,
     @InjectRepository(ProjectMember) private readonly projectMemberRepo: Repository<ProjectMember>,
+    @InjectRepository(Task) private readonly taskRepo: Repository<Task>,
     @InjectRepository(User) private readonly userRepo: Repository<User>,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
     private readonly jwtService: JwtService,
     private readonly mailerService: MailerService,
     private readonly configService: ConfigService,
-    private readonly tasksService: TasksService,
 ) {}
   
    async createProject(userId:string, dto:CreateProjectDto): Promise<Project> {
@@ -57,8 +57,13 @@ export class ProjectsService {
     }
     const [projects, total] = await this.projectRepo.createQueryBuilder('project')
       .leftJoin('project.members', 'membership', 'membership.userId = :userId', { userId })
-      .where('project.visibility =:public',{ public: Visibility.PUBLIC })
-      .orWhere('membership.userId = :userId', { userId })
+      .where('project.isDeleted = :isDeleted', { isDeleted: false })
+      .andWhere('(project.visibility = :visibility OR membership.userId = :userId)',
+     {
+      visibility: Visibility.PUBLIC,
+      userId,
+      },
+    )
       .distinct(true)
       .skip(skip)
       .take(limit)
@@ -82,7 +87,7 @@ export class ProjectsService {
    let project: Project | null = (await this.cacheManager.get<Project>(cacheKey)) ?? null;
 
     if (!project) {
-        project =  await this.projectRepo.findOne({where:{ projectId }});
+        project =  await this.projectRepo.findOne({where:{ projectId , isDeleted: false }});
         if(!project){
             throw new NotFoundException('Project not found');
         }
@@ -109,15 +114,21 @@ export class ProjectsService {
 
   async deleteProject(projectId: string, userId: string): Promise<{ message: string }> {
     const project = await this.getProjectById(projectId, userId);
-    if (!project) {
-      throw new NotFoundException('Project not found');
-    }
-    await this.projectRepo.remove(project);
+  if (!project) {
+    throw new NotFoundException('Project not found');
+  }
 
-    await this.cacheManager.del(`project_detail:${projectId}`);
-    await this.cacheManager.del(`user_projects_${userId}`);
-    return{message:'Project deleted successfully' };
- }
+  project.isDeleted = true;
+  project.deletedAt = new Date();
+  await this.projectRepo.save(project);
+
+  await this.userRepo.manager.update(Task,
+    { projectId },
+    { isDeleted: true, deletedAt: new Date() },
+  );
+
+  return { message: 'Project deleted successfully' };
+}
 
  // project members
 

@@ -6,6 +6,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Auth } from 'src/common/decorators/auth.decorator';
 import { ProjectRole } from 'src/projects/entity/project-member.entity';
 import { PaginationDto } from 'src/common/dto/pagination.dto';
+import { CreateCommentDto } from './dto/comment.dto';
 
 @ApiTags('Tasks')
 @ApiBearerAuth()
@@ -64,5 +65,33 @@ export class TasksController {
     @Query() paginationDto: PaginationDto,
   ) {
     return this.tasksService.getProjectTasks(projectId, paginationDto);
+  }
+
+  @Auth()
+  @Post(':taskId/comments')
+  @ApiOperation({ summary: 'Add comment to a task' })
+  async addComment(
+    @Param('taskId') taskId: string,
+    @User('userId') userId: string,
+    @Body() dto: CreateCommentDto,
+  ) {
+    return this.tasksService.addComment(taskId, userId, dto);
+  }
+
+  @Auth()
+  @Get(':taskId/comments')
+  @ApiOperation({ summary: 'Get comments for a task' })
+  async getTaskComments(@Param('taskId') taskId: string) {
+    return this.tasksService.getTaskComments(taskId);
+  }
+
+  @Auth()
+  @Delete('comments/:commentId')
+  @ApiOperation({ summary: 'Delete your own comment' })
+  async deleteComment(
+    @Param('commentId') commentId: string,
+    @User('userId') userId: string,
+  ) {
+    return this.tasksService.deleteComment(commentId, userId);
   }
 }

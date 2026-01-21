@@ -8,12 +8,15 @@ import { ProjectRole } from 'src/projects/entity/project-member.entity';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import type { Cache } from 'cache-manager';
 import { PaginationDto } from 'src/common/dto/pagination.dto';
+import { TaskComment } from './entity/comment.entity';
+import { CreateCommentDto } from './dto/comment.dto';
 
 
 @Injectable()
 export class TasksService {
     constructor(
         @InjectRepository(Task) private readonly taskRepo: Repository<Task>,
+        @InjectRepository(TaskComment) private readonly commentRepo: Repository<TaskComment>,
         @Inject(forwardRef(() => ProjectsService)) private readonly projectsService: ProjectsService,
         @Inject(CACHE_MANAGER) private cacheManager: Cache,
     ) {}
@@ -38,7 +41,7 @@ export class TasksService {
         if (cachedTask) {
             return cachedTask;
         }
-        const task = await this.taskRepo.findOne({ where: { taskId },
+        const task = await this.taskRepo.findOne({ where: { taskId , isDeleted: false },
         relations: ['project'],
     });
         if (!task) {
@@ -76,9 +79,12 @@ export class TasksService {
 
     async deleteTask(taskId: string){
         const task = await this.getTaskById(taskId);
-        await this.taskRepo.remove(task);
+        task.isDeleted = true;
+        task.deletedAt = new Date();
+
+        await this.taskRepo.save(task);
         await this.cacheManager.del(`task_detail:${taskId}`);
-        return{ message: 'Task deleted successfully'};
+        return{ message: 'Task soft-deleted successfully'};
     }
 
     async getMyTasks(userId: string, pagination: PaginationDto): Promise<any> {
@@ -91,7 +97,7 @@ export class TasksService {
             return cachedTasks;
         }
         const [tasks, total] = await this.taskRepo.findAndCount({ 
-            where: { assignedToId: userId }, 
+            where: { assignedToId: userId , isDeleted: false }, 
             relations: ['project'],
             order: { updatedAt: 'DESC' },
             skip,
@@ -145,7 +151,7 @@ export class TasksService {
         return cachedData;
     }
     const [tasks, total] = await this.taskRepo.findAndCount({
-        where: { projectId },
+        where: { projectId, isDeleted: false },
         relations: ['assignedTo'],
         order: { createdAt: 'DESC' },
         skip,
@@ -161,4 +167,41 @@ export class TasksService {
         },
     };
   }
+  
+  async addComment(taskId: string, userId:string, dto: CreateCommentDto) {
+    const task = await this.getTaskById(taskId);
+    const comment = this.commentRepo.create({
+        content: dto.content,
+        taskId: task.taskId,
+        authorId: userId,
+    });
+    const savedComment = await this.commentRepo.save(comment);
+    await this.cacheManager.del(`task_comments:${taskId}`);
+    return savedComment;
+  }
+
+  async getTaskComments(taskId: string){
+    const comment = await this.commentRepo.find({
+        where: { taskId },
+        relations: ['author'],
+        order: { createdAt: 'ASC' },
+    });
+    return comment;
+  }
+
+  async deleteComment(commentId: string, userId: string){
+    const comment = await this.commentRepo.findOne({ where: { commentId } });
+    if(!comment){
+        throw new NotFoundException('Comment not found');
+    }
+    if(comment.authorId !== userId){
+        throw new ForbiddenException('You can only delete your own comments');
+    }
+
+    await this.commentRepo.remove(comment);
+    await this.cacheManager.del(`task_comments:${comment.taskId}`);
+    return { message: 'Comment deleted successfully' };
+  }
+
+
 }

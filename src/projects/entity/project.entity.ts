@@ -35,6 +35,12 @@ export class Project {
   @JoinColumn({ name: 'ownerId' })
   owner: User;
 
+  @Column({ default: false })
+  isDeleted: boolean;
+
+  @Column({ type: 'timestamp', nullable: true })
+  deletedAt: Date | null;
+  
   @CreateDateColumn()
   createdAt: Date;
 
