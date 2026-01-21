@@ -22,7 +22,7 @@ export class TasksService {
          if (!isMember) {
             throw new ForbiddenException('You are not a member of this project');
         }
-       
+        
         const task = this.taskRepo.create(dto);
         const savedTask = await this.taskRepo.save(task);
         if (dto.assignedToId) {
@@ -105,7 +105,7 @@ export class TasksService {
         if (startDate) {
         query.andWhere('task.createdAt >= :startDate', { startDate: new Date(startDate) });
         }
-        
+
         if (endDate) {
         const end = new Date(endDate);
         end.setHours(23, 59, 59, 999);

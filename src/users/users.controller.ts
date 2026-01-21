@@ -24,6 +24,7 @@ export class UsersController {
   async verifyEmail(@Body() verifyOtpDto: VerifyOtpDto) {
     return this.usersService.verifyUserEmail(verifyOtpDto.email, verifyOtpDto.otp);
   }
+  
   @Auth()
   @ApiBearerAuth()
   @Get('profile')

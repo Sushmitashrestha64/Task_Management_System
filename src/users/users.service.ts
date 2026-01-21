@@ -121,4 +121,21 @@ export class UsersService {
     }
     return await bcrypt.compare(password, user.password);
  } 
+
+  async updateRefreshToken(userId: string, refreshToken: string) {
+    await this.userRepo.update(userId, { refreshToken });
+ }
+
+ async findUserWithToken(userId: string) {
+  const user = await this.userRepo.findOne({
+    where: { userId },
+    select: ['userId', 'email', 'refreshToken', 'status', 'verified'], 
+  });
+  
+  if (!user) {
+    throw new NotFoundException('User not found');
+  }
+  
+  return user;
+ }
 }
