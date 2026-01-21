@@ -45,13 +45,20 @@ export class AuthController {
     if (!refreshToken) throw new UnauthorizedException();
 
     const tokens = await this.authService.refreshTokens(refreshToken);
-    res.cookie('refresh_token', tokens.refresh_token, {
+      res.cookie('access_token', tokens.access_token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 15 * 60 * 1000, 
+    });
+
+      res.cookie('refresh_token', tokens.refresh_token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
-    return { access_token: tokens.access_token };
+    return { message: 'Tokens refreshed' };
   }
 
   @Post('logout')

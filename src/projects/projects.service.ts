@@ -14,6 +14,8 @@ import type { Cache } from 'cache-manager';
 import { randomBytes } from 'crypto';
 import * as bcrypt from 'bcrypt';
 import { TasksService } from 'src/tasks/tasks.service';
+import { PaginationDto } from 'src/common/dto/pagination.dto';
+
 
 
 
@@ -45,21 +47,34 @@ export class ProjectsService {
     return savedProject;
   }
 
-  async findAllProjects(userId: string){
-    const  cacheKey = `user_projects_${userId}`;
-    const cachedProjects= await this.cacheManager.get<Project[]>(cacheKey);
+  async findAllProjects(userId: string, pagination: PaginationDto){
+    const { page=1, limit=10 } = pagination;
+    const skip = (page - 1) * limit;
+    const  cacheKey = `user_projects_${userId}_p${page}_l${limit}`;
+    const cachedProjects= await this.cacheManager.get<{data: Project[], meta: {total: number, page: number, lastPage: number}}>(cacheKey);
     if (cachedProjects) {
         return cachedProjects;
     }
-    const projects = await this.projectRepo.createQueryBuilder('project')
+    const [projects, total] = await this.projectRepo.createQueryBuilder('project')
       .leftJoin('project.members', 'membership', 'membership.userId = :userId', { userId })
       .where('project.visibility =:public',{ public: Visibility.PUBLIC })
       .orWhere('membership.userId = :userId', { userId })
       .distinct(true)
-      .getMany(); 
+      .skip(skip)
+      .take(limit)
+      .getManyAndCount();
 
-    await this.cacheManager.set(cacheKey, projects, 36000);
-    return projects;
+      const result = {
+        data: projects,
+        meta:{
+          total,
+          page,
+          lastPage: Math.ceil(total/limit),
+        },
+      };
+
+    await this.cacheManager.set(cacheKey, result, 600);
+    return result;
   }    
   
   async getProjectById(projectId: string, userId: string): Promise<Project> {
@@ -71,7 +86,7 @@ export class ProjectsService {
         if(!project){
             throw new NotFoundException('Project not found');
         }
-      await this.cacheManager.set(cacheKey, project, 1800);
+      await this.cacheManager.set(cacheKey, project, 600);
     }
     if (project.visibility === Visibility.PRIVATE) {
         const membership = await this.getMemberRole(projectId, userId);
@@ -152,15 +167,31 @@ export class ProjectsService {
      return this.projectMemberRepo.delete({ projectId, userId });
   }
 
-  async listProjectMembers(projectId: string): Promise<ProjectMember[]> {
-    const cacheKey = `project_members_${projectId}`;
-    const cachedMembers= await this.cacheManager.get<ProjectMember[]>(cacheKey);
+  async listProjectMembers(projectId: string, pagination: PaginationDto): Promise<any> {
+    const { page=1, limit=10 } = pagination;
+    const skip = (page - 1) * limit;
+    const cacheKey = `project_members_${projectId}_p${page}_l${limit}`;
+    const cachedMembers= await this.cacheManager.get(cacheKey);
     if (cachedMembers) {
         return cachedMembers;
     }
-    const members = await this.projectMemberRepo.find({ where: { projectId }, relations: ['user'] });
-    await this.cacheManager.set(cacheKey, members, 1800);
-    return members;
+    const [members, total] = await this.projectMemberRepo.findAndCount({ 
+      where: { projectId },
+      relations: ['user'], 
+      skip,
+      take: limit,
+     });
+
+     const result = {
+      data: members,
+      meta:{
+        total,
+        page,
+        lastPage: Math.ceil(total/limit),
+      },
+    };
+    await this.cacheManager.set(cacheKey, result, 600);
+    return result;
   }
 
   // Invitations  

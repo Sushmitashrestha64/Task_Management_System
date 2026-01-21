@@ -1,10 +1,11 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { TasksService } from './tasks.service';
 import { CreateTaskDto, UpdateTaskDto, UpdateTaskStatusDto } from './dto/task.dto';
 import { User } from 'src/common/decorators/user.decorator';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Auth } from 'src/common/decorators/auth.decorator';
 import { ProjectRole } from 'src/projects/entity/project-member.entity';
+import { PaginationDto } from 'src/common/dto/pagination.dto';
 
 @ApiTags('Tasks')
 @ApiBearerAuth()
@@ -48,7 +49,20 @@ export class TasksController {
   @Auth()
   @Get('my-tasks')
   @ApiOperation({ summary: 'Get my tasks' })
-  async getMyTasks(@User('userId') userId: string) {
-    return this.tasksService.getMyTasks(userId);
+  async getMyTasks(
+    @User('userId') userId: string,
+    @Query() paginationDto: PaginationDto
+  ) {
+    return this.tasksService.getMyTasks(userId, paginationDto);
+  }
+
+  @Auth()
+  @Get('project/:projectId')
+  @ApiOperation({ summary: 'Get paginated tasks for a project' })
+  async getProjectTasks(
+    @Param('projectId') projectId: string,
+    @Query() paginationDto: PaginationDto,
+  ) {
+    return this.tasksService.getProjectTasks(projectId, paginationDto);
   }
 }

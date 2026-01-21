@@ -7,6 +7,7 @@ import { ProjectsService } from 'src/projects/projects.service';
 import { ProjectRole } from 'src/projects/entity/project-member.entity';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import type { Cache } from 'cache-manager';
+import { PaginationDto } from 'src/common/dto/pagination.dto';
 
 
 @Injectable()
@@ -80,21 +81,39 @@ export class TasksService {
         return{ message: 'Task deleted successfully'};
     }
 
-    async getMyTasks(userId: string): Promise<Task[]|{message:string}> {
-        const cacheKey = `user_tasks_assigned:${userId}`;
-        const cachedTasks= await this.cacheManager.get<Task[]>(cacheKey);
+    async getMyTasks(userId: string, pagination: PaginationDto): Promise<any> {
+        const { page=1, limit=10 } = pagination;
+        const skip = (page - 1) * limit;
+
+        const cacheKey = `user_tasks_assigned:${userId}_p${page}_l${limit}`;
+        const cachedTasks= await this.cacheManager.get(cacheKey);
         if (cachedTasks) {
             return cachedTasks;
         }
-        const tasks = await this.taskRepo.find({ where: { assignedToId: userId }, 
+        const [tasks, total] = await this.taskRepo.findAndCount({ 
+            where: { assignedToId: userId }, 
             relations: ['project'],
-            order: { updatedAt: 'DESC' }
+            order: { updatedAt: 'DESC' },
+            skip,
+            take: limit,
          });
-        await this.cacheManager.set(cacheKey, tasks, 1800);
-         if (tasks.length === 0) {
-        return { message: 'You do not have any assigned tasks' };
-    }
-        return tasks;
+        if(total === 0){
+            return {
+                data:[],
+                message:'No tasks assigned to you.'
+            };
+        }
+        const result = {
+            data: tasks,
+            meta:{
+                total,
+                page,
+                lastPage: Math.ceil(total/limit),
+            },
+        };
+
+        await this.cacheManager.set(cacheKey, result, 1800);
+        return result;
     }
 
     async getTaskByTimeframe(projectId: string, startDate?: string, endDate?: string) {
@@ -115,5 +134,31 @@ export class TasksService {
         const tasks = await query.getMany();
         console.log(`[TasksService] Found ${tasks.length} tasks for Project: ${projectId}`);
         return tasks;
+  }
+
+  async getProjectTasks(projectId: string, pagination:PaginationDto){
+    const { page=1, limit=10 } = pagination;
+    const skip = (page - 1) * limit;
+    const cacheKey = `project_tasks_${projectId}_p${page}_l${limit}`;
+    const cachedData= await this.cacheManager.get<{data: Task[], meta: {total: number, page: number, lastPage: number}}>(cacheKey);
+    if (cachedData) {
+        return cachedData;
+    }
+    const [tasks, total] = await this.taskRepo.findAndCount({
+        where: { projectId },
+        relations: ['assignedTo'],
+        order: { createdAt: 'DESC' },
+        skip,
+        take: limit,
+    });
+
+    return{
+        data: tasks,
+        meta:{
+            total,
+            page,
+            lastPage: Math.ceil(total/limit),
+        },
+    };
   }
 }

@@ -4,8 +4,8 @@ import { AcceptInvitationDto, AddProjectMemberDto, ChangeMemberRoleDto, CreatePr
 import { User } from 'src/common/decorators/user.decorator';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Auth } from 'src/common/decorators/auth.decorator';
-import { RolesGuard } from 'src/common/guards/roles.guard';
 import { ProjectRole } from './entity/project-member.entity';
+import { PaginationDto } from 'src/common/dto/pagination.dto';
 
 
 @ApiTags('Projects')
@@ -25,8 +25,10 @@ export class ProjectsController {
   @Auth()
   @Get()
   @ApiOperation({ summary: 'Get all public projects + those you are a member of' })
-  findAll(@User('userId') userId: string) {
-    return this.projectsService.findAllProjects(userId);
+  findAll(@User('userId') userId: string,
+         @Query() pagination: PaginationDto
+    ) {
+    return this.projectsService.findAllProjects(userId, pagination);
   }
 
   @Auth()
@@ -94,5 +96,15 @@ export class ProjectsController {
   @ApiOperation({ summary: 'Remove a member' })
   removeMember(@Param('projectId') projectId: string, @Param('userId') memberUserId: string) {
     return this.projectsService.removeProjectMember(projectId, memberUserId);
+  }
+
+  @Auth(ProjectRole.ADMIN, ProjectRole.PROJECT_MANAGER, ProjectRole.LEAD)
+  @Get(':projectId/members')
+  @ApiOperation({ summary: 'List project members' })
+  async listMembers(
+    @Param('projectId') projectId: string,
+    @Query() pagination: PaginationDto
+  ) {
+    return this.projectsService.listProjectMembers(projectId, pagination);
   }
 }
