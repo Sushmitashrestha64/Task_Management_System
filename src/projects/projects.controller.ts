@@ -61,8 +61,8 @@ export class ProjectsController {
   @Auth(ProjectRole.ADMIN, ProjectRole.PROJECT_MANAGER)
   @Post(':projectId/members')
   @ApiOperation({ summary: 'Add a member directly' })
-  async addMember(@Param('projectId') projectId: string, @Body() dto: AddProjectMemberDto) {
-    return this.projectsService.addProjectMember(projectId, dto);
+  async addMember(@Param('projectId') projectId: string, @Body() dto: AddProjectMemberDto, @User('userId') operatorId: string) {
+    return this.projectsService.addProjectMember(projectId, operatorId, dto);
   }
 
   @Auth(ProjectRole.ADMIN, ProjectRole.PROJECT_MANAGER)
@@ -72,15 +72,16 @@ export class ProjectsController {
     @Param('projectId') projectId: string,
     @Param('userId') userId: string,
     @Body() dto: ChangeMemberRoleDto,
+    @User('userId') operatorId: string
   ) {
-    return this.projectsService.changeMemberRole(projectId, userId, dto);
+    return this.projectsService.changeMemberRole(projectId, userId, dto, operatorId);
   }
 
   @Auth(ProjectRole.ADMIN, ProjectRole.PROJECT_MANAGER)
   @Post(':projectId/invite')
   @ApiOperation({ summary: 'Send email invitation' })
-  async inviteMember(@Param('projectId') projectId: string, @Body() dto: InviteMemberDto) {
-    await this.projectsService.sendInvitationEmail(projectId, dto);
+  async inviteMember(@Param('projectId') projectId: string, @Body() dto: InviteMemberDto, @User('userId') operatorId: string) {
+    await this.projectsService.sendInvitationEmail(projectId, dto, operatorId);
     return { message: 'Invitation sent successfully' };
   }
 
@@ -94,8 +95,8 @@ export class ProjectsController {
   @Auth(ProjectRole.ADMIN, ProjectRole.PROJECT_MANAGER)
   @Delete(':projectId/members/:userId')
   @ApiOperation({ summary: 'Remove a member' })
-  removeMember(@Param('projectId') projectId: string, @Param('userId') memberUserId: string) {
-    return this.projectsService.removeProjectMember(projectId, memberUserId);
+  removeMember(@Param('projectId') projectId: string, @Param('userId') memberUserId: string, @User('userId') operatorId: string) {
+    return this.projectsService.removeProjectMember(projectId, memberUserId, operatorId);
   }
 
   @Auth(ProjectRole.ADMIN, ProjectRole.PROJECT_MANAGER, ProjectRole.LEAD)

@@ -22,11 +22,16 @@ import { ScheduleModule } from '@nestjs/schedule';
 import{ CleanupService } from './common/softdelete/cleanup.service';
 import { Task } from './tasks/entity/task.entity';
 import { Project } from './projects/entity/project.entity';
+import { EventEmitterModule } from '@nestjs/event-emitter';
+import { ActivityLogModule } from './activity-log/activity-log.module';
+import { ActivityLog } from './activity-log/entity/activity-log.entity';
+
 
 @Module({
   imports: [
+  EventEmitterModule.forRoot(),
   ScheduleModule.forRoot(),
-  TypeOrmModule.forFeature([Project, Task]),
+  TypeOrmModule.forFeature([Project, Task, ActivityLog]),
   ConfigModule.forRoot({
     isGlobal: true,
     load: [configuration],
@@ -77,7 +82,7 @@ import { Project } from './projects/entity/project.entity';
         ttl: configService.get<number>('REDIS_TTL'), 
   }),
 }),
-    AuthModule, UsersModule, ProjectsModule, TasksModule, OtpModule, ReportModule, B2Module],
+    AuthModule, UsersModule, ProjectsModule, TasksModule, OtpModule, ReportModule, B2Module, ActivityLogModule],
   controllers: [AppController],
   providers: [AppService, CleanupService],
 })

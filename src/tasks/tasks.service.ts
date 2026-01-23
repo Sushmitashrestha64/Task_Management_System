@@ -10,6 +10,8 @@ import type { Cache } from 'cache-manager';
 import { PaginationDto } from 'src/common/dto/pagination.dto';
 import { TaskComment } from './entity/comment.entity';
 import { CreateCommentDto } from './dto/comment.dto';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { ActivityAction } from 'src/activity-log/entity/activity-log.entity';
 
 
 @Injectable()
@@ -19,6 +21,7 @@ export class TasksService {
         @InjectRepository(TaskComment) private readonly commentRepo: Repository<TaskComment>,
         @Inject(forwardRef(() => ProjectsService)) private readonly projectsService: ProjectsService,
         @Inject(CACHE_MANAGER) private cacheManager: Cache,
+        private readonly eventEmitter: EventEmitter2,
     ) {}
 
     async createTask(dto: CreateTaskDto, userId: string): Promise<Task> {
@@ -29,6 +32,14 @@ export class TasksService {
         
         const task = this.taskRepo.create(dto);
         const savedTask = await this.taskRepo.save(task);
+
+        this.eventEmitter.emit('project.activity', {
+            projectId: savedTask.projectId,
+            userId: userId,
+            action: ActivityAction.TASK_CREATED,
+            details: `Created task "${savedTask.title}"`,
+        });
+        
         if (dto.assignedToId) {
         await this.cacheManager.del(`user_tasks_assigned:${dto.assignedToId}`);
         }
@@ -51,10 +62,17 @@ export class TasksService {
         return task;
     }
 
-    async updateTask(taskId: string, dto: UpdateTaskDto){
+    async updateTask(taskId: string, dto: UpdateTaskDto, operatorId: string): Promise<Task> {
         const task = await this.getTaskById(taskId);
         Object.assign(task, dto);
         const updatedTask = await this.taskRepo.save(task);
+
+        this.eventEmitter.emit('project.activity', {
+            projectId: updatedTask.projectId,
+            userId:operatorId, 
+            action: ActivityAction.TASK_UPDATED,
+            details: `Updated task "${updatedTask.title}"`,
+        });
         await this.cacheManager.del(`task_detail:${taskId}`);
         return updatedTask;
     }
@@ -70,6 +88,14 @@ export class TasksService {
         if (accessibleRoles.includes(role) || task.assignedToId === userId) {
             task.status = dto.status;
             const updatedTask = await this.taskRepo.save(task);
+
+            this.eventEmitter.emit('project.activity', {
+                projectId: updatedTask.projectId,
+                userId: userId,
+                action: ActivityAction.TASK_STATUS_UPDATED,
+                details: `Updated status of task "${updatedTask.title}" to "${updatedTask.status}"`,
+            });
+
             await this.cacheManager.del(`task_detail:${taskId}`);
             return updatedTask;
         } else {
@@ -77,12 +103,19 @@ export class TasksService {
         }
     }
 
-    async deleteTask(taskId: string){
+    async deleteTask(taskId: string, operatorId: string): Promise<{ message: string }> {
         const task = await this.getTaskById(taskId);
         task.isDeleted = true;
         task.deletedAt = new Date();
 
         await this.taskRepo.save(task);
+
+        this.eventEmitter.emit('project.activity', {
+            projectId: task.projectId,
+            userId: operatorId,
+            action: ActivityAction.TASK_DELETED,
+            details: `Soft deleted task "${task.title}"`,
+        });
         await this.cacheManager.del(`task_detail:${taskId}`);
         return{ message: 'Task soft-deleted successfully'};
     }
@@ -176,6 +209,13 @@ export class TasksService {
         authorId: userId,
     });
     const savedComment = await this.commentRepo.save(comment);
+
+    this.eventEmitter.emit('project.activity', {
+        projectId: task.projectId,
+        userId: userId,
+        action: ActivityAction.COMMENT_ADDED,
+        details: `Added comment to task "${task.title}"`,
+    });
     await this.cacheManager.del(`task_comments:${taskId}`);
     return savedComment;
   }
@@ -190,15 +230,27 @@ export class TasksService {
   }
 
   async deleteComment(commentId: string, userId: string){
-    const comment = await this.commentRepo.findOne({ where: { commentId } });
+    const comment = await this.commentRepo.findOne({
+        where: { commentId },
+        relations: ['task'],
+        });
     if(!comment){
         throw new NotFoundException('Comment not found');
     }
     if(comment.authorId !== userId){
         throw new ForbiddenException('You can only delete your own comments');
     }
-
+    const taskId = comment.taskId;
+    const projectId = comment.task.projectId;
     await this.commentRepo.remove(comment);
+    
+    this.eventEmitter.emit('project.activity', {
+        projectId: projectId,
+        userId: userId,
+        action: ActivityAction.COMMENT_DELETED,
+        details: `Deleted comment from task "${comment.task.title}"`,
+    });
+
     await this.cacheManager.del(`task_comments:${comment.taskId}`);
     return { message: 'Comment deleted successfully' };
   }

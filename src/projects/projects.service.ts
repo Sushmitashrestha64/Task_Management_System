@@ -15,6 +15,8 @@ import { randomBytes } from 'crypto';
 import * as bcrypt from 'bcrypt';
 import { PaginationDto } from 'src/common/dto/pagination.dto';
 import { Task } from 'src/tasks/entity/task.entity';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { ActivityAction } from 'src/activity-log/entity/activity-log.entity';
 
 
 
@@ -31,6 +33,7 @@ export class ProjectsService {
     private readonly jwtService: JwtService,
     private readonly mailerService: MailerService,
     private readonly configService: ConfigService,
+    private readonly eventEmitter: EventEmitter2,
 ) {}
   
    async createProject(userId:string, dto:CreateProjectDto): Promise<Project> {
@@ -43,6 +46,12 @@ export class ProjectsService {
       role: ProjectRole.ADMIN,
     });
 
+    this.eventEmitter.emit('project.activity', {
+      projectId: savedProject.projectId,
+      userId,
+      action: ActivityAction.PROJECT_CREATED,
+      details: `Project ${savedProject.name} created`,
+    });
     await this.cacheManager.del(`user_projects_${userId}`);
     return savedProject;
   }
@@ -106,6 +115,13 @@ export class ProjectsService {
     const project = await this.getProjectById(projectId, userId);
     Object.assign(project, dto);
     const updatedProject = await this.projectRepo.save(project);
+    
+    this.eventEmitter.emit('project.activity', {
+      projectId,
+      userId,
+      action: ActivityAction.PROJECT_UPDATED,
+      details: `Updated project details: ${Object.keys(dto).join(', ')}`,
+    });
 
     await this.cacheManager.del(`project_detail:${projectId}`);
     await this.cacheManager.del(`user_projects_${userId}`);
@@ -127,6 +143,13 @@ export class ProjectsService {
     { isDeleted: true, deletedAt: new Date() },
   );
 
+  this.eventEmitter.emit('project.activity', {
+    projectId,
+    userId,
+    action: ActivityAction.PROJECT_DELETED,
+    details: `Soft deleted the project' ${project.name} 'and all it's tasks.`,
+  });
+
   return { message: 'Project deleted successfully' };
 }
 
@@ -140,7 +163,7 @@ export class ProjectsService {
    return member;
  }
 
-  async addProjectMember(projectId: string, dto: AddProjectMemberDto): Promise<ProjectMember> {
+  async addProjectMember(projectId: string, operatorId: string, dto: AddProjectMemberDto): Promise<ProjectMember> {
     const existing = await  this.projectMemberRepo.findOne({ where: { projectId, userId: dto.userId } });
     if (existing) {
       throw new ForbiddenException('User is already a member of the project');
@@ -151,21 +174,36 @@ export class ProjectsService {
       role: dto.role,
     });
 
+     this.eventEmitter.emit('project.activity', {
+        projectId,
+        userId: operatorId,
+        action: ActivityAction.MEMBER_ADDED,
+        details: `Added user ${dto.userId} as ${dto.role}`,
+    });
+
     await this.cacheManager.del(`project_detail:${projectId}`);
-    await this.cacheManager.del(`user_projects_${dto.userId}`);
     return newMember;
   }
 
-  async changeMemberRole(projectId: string, userId: string, dto:ChangeMemberRoleDto): Promise<ProjectMember> {
+  async changeMemberRole(projectId: string, userId: string, dto:ChangeMemberRoleDto, operatorId: string): Promise<ProjectMember> {
     const membership = await this.projectMemberRepo.findOne({ where: { projectId, userId }});
     if (!membership) {
       throw new NotFoundException('Member not found in this project');
     }
+    const oldRole = membership.role;
     membership.role = dto.role;
-    return this.projectMemberRepo.save(membership);
+    const updated = await this.projectMemberRepo.save(membership);
+
+    this.eventEmitter.emit('project.activity', {
+      projectId,
+      userId: operatorId,
+      action: ActivityAction.MEMBER_ROLE_CHANGED,
+      details: `Changed role of user ${userId} from ${oldRole} to ${dto.role}`,
+    });
+    return updated;
   }
   
-  async removeProjectMember(projectId: string, userId: string) {
+  async removeProjectMember(projectId: string, userId: string, operatorId: string) {
     const project = await this.projectRepo.findOne({
         where: { projectId }, 
         select:['projectId','name','ownerId', 'visibility']});
@@ -175,7 +213,15 @@ export class ProjectsService {
      if(project.ownerId === userId){
       throw new ForbiddenException('Project owner cannot be removed from the project');
      }
-     return this.projectMemberRepo.delete({ projectId, userId });
+     await this.projectMemberRepo.delete({ projectId, userId });
+
+    this.eventEmitter.emit('project.activity', {
+      projectId,
+      userId: operatorId,
+      action: ActivityAction.MEMBER_REMOVED,
+      details: `Removed user ${userId} from the project.`,
+   });
+    return { message: 'Member removed successfully' };
   }
 
   async listProjectMembers(projectId: string, pagination: PaginationDto): Promise<any> {
@@ -206,7 +252,7 @@ export class ProjectsService {
   }
 
   // Invitations  
-  async sendInvitationEmail(projectId: string, dto: InviteMemberDto): Promise<void> {
+  async sendInvitationEmail(projectId: string, dto: InviteMemberDto, operatorId: string): Promise<void> {
     const project = await this.projectRepo.findOne({ where: { projectId } });
     if (!project) {
       throw new NotFoundException('Project not found');
@@ -229,6 +275,12 @@ export class ProjectsService {
       });
       await this.userRepo.save(user);
     }
+    this.eventEmitter.emit('project.activity', {
+      projectId,
+      userId: operatorId,
+      action: ActivityAction.INVITATION_SENT,
+      details: `Sent invitation to ${dto.email} as ${dto.role}. ${isNewUser ? '(New account created)' : ''}`,
+    });
 
     const existingMember = await this.projectMemberRepo.findOne({
     where: {  project:{projectId}, user: { email: dto.email } }, 
@@ -305,8 +357,16 @@ export class ProjectsService {
             role: payload.role as ProjectRole,
         });
         const savedMember = await this.projectMemberRepo.save(newMember);
+
+        this.eventEmitter.emit('project.activity', {
+        projectId: payload.projectId,
+        userId: user.userId, 
+        action: ActivityAction.INVITATION_ACCEPTED,
+        details: `Accepted the invitation and joined the project as ${payload.role}`,
+      });
         await this.cacheManager.del(`project_members_${payload.projectId}`);
         await this.cacheManager.del(`user_projects_${user.userId}`);
+        
         return savedMember;
     }catch(error){  
         if (error instanceof ForbiddenException) throw error;

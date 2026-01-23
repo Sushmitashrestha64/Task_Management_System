@@ -7,13 +7,13 @@ import { AuthService } from './auth.service';
 import { JwtStrategy } from './strategies/jwt-token.strategy';
 import { JwtModule } from '@nestjs/jwt';
 import { RefreshTokenStrategy } from './strategies/refresh-token.strategy';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
 @Module({
   imports: [
     JwtModule.registerAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
-        // Use config.get for safety
         secret: config.get('JWT_SECRET'), 
         signOptions: { expiresIn: '1d' },
       }),
@@ -22,7 +22,7 @@ import { RefreshTokenStrategy } from './strategies/refresh-token.strategy';
     PassportModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, RefreshTokenStrategy],
-  exports: [AuthService]
+  providers: [AuthService, JwtStrategy, RefreshTokenStrategy, JwtAuthGuard],
+  exports: [AuthService, JwtAuthGuard],
 })
 export class AuthModule {}

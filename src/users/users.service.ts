@@ -51,8 +51,10 @@ export class UsersService {
         throw new NotFoundException('User not found');
       }
       user.verified = true;
-      await this.userRepo.save(user);
-      return { message: 'Email verified successfully' };
+      const savedUser = await this.userRepo.save(user);
+      return { 
+        savedUser,
+        message: 'Email verified successfully' };
     }
 
     async findMeById( userId:string){

@@ -78,4 +78,17 @@ export class AuthService {
 
     return tokens;
  }
+
+ async verifyToken(token: string) {
+  try {
+    const payload = await this.jwtService.verifyAsync(token, {
+      secret: this.configService.get<string>('JWT_SECRET'),
+    });
+    
+    return await this.usersService.findMeById(payload.userId);
+  } catch (error) {
+    return null;
+  }
+}
+  
 }

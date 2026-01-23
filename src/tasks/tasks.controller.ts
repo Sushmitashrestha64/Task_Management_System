@@ -8,6 +8,7 @@ import { ProjectRole } from 'src/projects/entity/project-member.entity';
 import { PaginationDto } from 'src/common/dto/pagination.dto';
 import { CreateCommentDto } from './dto/comment.dto';
 
+
 @ApiTags('Tasks')
 @ApiBearerAuth()
 @Controller('tasks')
@@ -24,8 +25,8 @@ export class TasksController {
   @Auth(ProjectRole.ADMIN, ProjectRole.PROJECT_MANAGER, ProjectRole.LEAD, ProjectRole.MEMBER)
   @Patch(':taskId')
   @ApiOperation({ summary: 'Update task details' })
-  async updateTask(@Param('taskId') taskId: string, @Body() dto: UpdateTaskDto) {
-    return this.tasksService.updateTask(taskId, dto);
+  async updateTask(@Param('taskId') taskId: string, @Body() dto: UpdateTaskDto,@User('userId') operatorId: string) {
+    return this.tasksService.updateTask(taskId, dto, operatorId);
   }
 
   @Auth(ProjectRole.ADMIN, ProjectRole.PROJECT_MANAGER, ProjectRole.LEAD, ProjectRole.MEMBER)
@@ -43,8 +44,8 @@ export class TasksController {
   @Auth(ProjectRole.ADMIN, ProjectRole.PROJECT_MANAGER, ProjectRole.LEAD)
   @Delete(':taskId')
   @ApiOperation({ summary: 'Delete task' })
-  async deleteTask(@Param('taskId') taskId: string) {
-    return this.tasksService.deleteTask(taskId);
+  async deleteTask(@Param('taskId') taskId: string, @User('userId') operatorId: string) {
+    return this.tasksService.deleteTask(taskId, operatorId);
   }
 
   @Auth()

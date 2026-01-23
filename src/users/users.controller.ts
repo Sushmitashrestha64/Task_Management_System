@@ -1,5 +1,5 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Res,  } from '@nestjs/common';
-import { ApiTags, ApiBody, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiBody, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { User } from '../common/decorators/user.decorator';
@@ -9,6 +9,7 @@ import { Auth } from 'src/common/decorators/auth.decorator';
 import { VerifyOtpDto } from 'src/otp/dto/verify-otp.dto';
 import type { Response } from 'express';
 import { AuthService } from 'src/auth/auth.service';
+import * as bcrypt from 'bcrypt';
 
 @ApiTags('Users')
 @Controller('users')
@@ -18,21 +19,55 @@ export class UsersController {
   ) {}
 
   @Post('register')
+  @ApiOperation({ summary: 'Register a new user and send OTP' })
   @ApiBody({ type: CreateUserDto })
-  async register(
-    @Body() createUserDto: CreateUserDto,
-    @Res({passthrough: true}) res: Response,
-  ) {
+  async register(@Body() createUserDto: CreateUserDto) {
     await this.usersService.createUser(createUserDto);
 
-    const tokens = await this.authService.login(
-      createUserDto.email, 
-      createUserDto.password
+    return { 
+      message: 'Registration successful. Please check your email for the OTP code.' 
+    };
+  }
+
+  @Post('verify-email')
+  @ApiOperation({ summary: 'Verify OTP and Auto-Login' })
+  @ApiBody({ type: VerifyOtpDto })
+  async verifyEmail(
+    @Body() verifyOtpDto: VerifyOtpDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const { savedUser } = await this.usersService.verifyUserEmail(
+      verifyOtpDto.email,
+      verifyOtpDto.otp,
     );
 
+    const tokens = await this.authService.generateTokens(
+      savedUser.userId,
+      savedUser.email,
+    );
+
+    const salt = await bcrypt.genSalt();
+    const hashedRefreshToken = await bcrypt.hash(
+      tokens.refresh_token,
+      salt,
+    );
+
+    await this.usersService.updateRefreshToken(
+      savedUser.userId,
+      hashedRefreshToken,
+    );
+    
     this.setCookies(res, tokens);
-    return { message: 'Registration successful. Please verify your email using the OTP sent.' };
+    return {
+      message: 'Email verified and logged in successfully',
+      user: {
+        userId: savedUser.userId,
+        name: savedUser.name,
+        email: savedUser.email,
+      },
+    };
   }
+
   private setCookies(res: Response, tokens: any) {
     res.cookie('access_token', tokens.access_token, {
       httpOnly: true,
@@ -45,14 +80,8 @@ export class UsersController {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
-      maxAge: 7 * 24 * 60 * 60 * 1000, 
+      maxAge: 7 * 24 * 60 * 60 * 1000,
     });
-  }
-
-  @Post('verify-email')
-  @ApiBody({ type: VerifyOtpDto })
-  async verifyEmail(@Body() verifyOtpDto: VerifyOtpDto) {
-    return this.usersService.verifyUserEmail(verifyOtpDto.email, verifyOtpDto.otp);
   }
 
   @Auth()
