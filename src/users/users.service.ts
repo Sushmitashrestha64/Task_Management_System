@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { User } from './entity/user.entity';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -8,6 +8,8 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdatePasswordDto } from './dto/update-password';
 import { OtpService } from 'src/otp/otp.service';
 import { JwtService } from '@nestjs/jwt';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import type { Cache } from 'cache-manager';
 
 @Injectable()
 export class UsersService {
@@ -15,6 +17,7 @@ export class UsersService {
       @InjectRepository(User) private userRepo: Repository<User>,
       private readonly otpService: OtpService,
       private readonly jwtService: JwtService,
+      @Inject(CACHE_MANAGER) private cacheManager: Cache,
       ) {}
    
     async createUser(createUserDto: CreateUserDto){
@@ -52,26 +55,37 @@ export class UsersService {
       }
       user.verified = true;
       const savedUser = await this.userRepo.save(user);
+      await this.cacheManager.del(`user_profile_${savedUser.userId}`);
+      await this.otpService.deleteOtp(email);
       return { 
         savedUser,
         message: 'Email verified successfully' };
     }
 
     async findMeById( userId:string){
-        const user = await this.userRepo.findOne({
-            where:{ userId: userId },
-            select: ['userId', 'name', 'email', 'verified', 'status', 'createdAt', 'updatedAt']
+      const cacheKey = `user_profile_${userId}`;
+      const cachedProfile = await this.cacheManager.get<User>(cacheKey);
+      if (cachedProfile) {
+        return cachedProfile;
+      }
+      const user = await this.userRepo.findOne({
+          where:{ userId: userId },
+          select: ['userId', 'name', 'email', 'verified', 'status', 'createdAt', 'updatedAt']
         });
         if(!user){
             throw new NotFoundException('User not found');
         }
+        await this.cacheManager.set(cacheKey, user, 3600); 
         return user;    
     }
 
     async updateProfile(userId: string, updateUserDto: UpdateUserDto){
     const user = await this.findMeById(userId); 
     Object.assign(user, updateUserDto);
-    return await this.userRepo.save(user);
+    const updatedUser = await this.userRepo.save(user);
+
+    await this.cacheManager.del(`user_profile_${userId}`);
+    return updatedUser;
   }
 
    async findByEmail(email: string) {
@@ -87,6 +101,7 @@ export class UsersService {
     if (result.affected === 0) {
         throw new NotFoundException('User not found');
     }
+    await this.cacheManager.del(`user_profile_${id}`);
     return { message: 'User deleted successfully' };
   }
 
@@ -110,6 +125,8 @@ export class UsersService {
     const hashedNewPassword = await bcrypt.hash(newPassword, 10);
     user.password = hashedNewPassword;
     await this.userRepo.save(user);
+
+    await this.cacheManager.del(`user_profile_${id}`);
     return { message: 'Password updated successfully' };
   }
 

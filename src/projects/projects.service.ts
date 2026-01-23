@@ -87,20 +87,22 @@ export class ProjectsService {
         },
       };
 
-    await this.cacheManager.set(cacheKey, result, 600);
+    await this.cacheManager.set(cacheKey, result, 600000);
     return result;
   }    
   
   async getProjectById(projectId: string, userId: string): Promise<Project> {
-    const cacheKey = `project_detail:${projectId}`;
+   const cacheKey = `project_detail:${projectId}`;
+   console.log('Fetching project with cache key:', cacheKey);
    let project: Project | null = (await this.cacheManager.get<Project>(cacheKey)) ?? null;
 
     if (!project) {
+      console.log('Key not found in cache, querying database...');
         project =  await this.projectRepo.findOne({where:{ projectId , isDeleted: false }});
         if(!project){
             throw new NotFoundException('Project not found');
         }
-      await this.cacheManager.set(cacheKey, project, 600);
+      await this.cacheManager.set(cacheKey, project, 600000);
     }
     if (project.visibility === Visibility.PRIVATE) {
         const membership = await this.getMemberRole(projectId, userId);
