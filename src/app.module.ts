@@ -97,23 +97,17 @@ export class AppModule implements NestModule, OnModuleInit {
     this.logger.log(`🔌 Attempting to connect to Redis at ${redisHost}...`);
 
     try { 
-      const cacheStore: any = this.cache;
-      const testKey = 'redis:connection:test';
-      const testValue = 'connected';
+      // Test the connection with actual read/write
+      await this.cache.set('test:connection', 'ok', 5000);
+      const value = await this.cache.get('test:connection');
       
-      await this.cache.set(testKey, testValue, 10000); 
-      const retrieved = await this.cache.get(testKey);
-      const isRealRedis = !!cacheStore?.store?.client || !!cacheStore?.client;
-
-      if (retrieved === testValue) {
-        if (isRealRedis) {
-          this.logger.log(`✅ Success: Connected to DOCKER REDIS at ${redisHost}`);
-        } else {
-          this.logger.warn(`⚠️ Warning: connected to MEMORY cache (fallback) - check your Redis config.`);
-        }
+      if (value === 'ok') {
+        this.logger.log(`✅ Success: Connected to Redis at ${redisHost}`);
+        this.logger.log(`✅ Redis read/write test successful`);
+        await this.cache.del('test:connection');
+      } else {
+        this.logger.warn(`⚠️ Warning: Cache test failed - using in-memory fallback`);
       }
-
-      await this.cache.del(testKey);
     } catch (error) {
       this.logger.error(`❌ Redis connection error: ${error.message}`);
     }

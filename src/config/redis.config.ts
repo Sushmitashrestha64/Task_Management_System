@@ -7,31 +7,28 @@ export const cacheConfig: CacheModuleAsyncOptions = {
   imports: [ConfigModule],
   inject: [ConfigService],
   useFactory: async (configService: ConfigService) => {
-    console.log('\n========================================');
-    console.log('🔧 CACHE MODULE FACTORY CALLED');
-    console.log('========================================\n');
-
     const redisHost = configService.get<string>('REDIS_HOST');
     const redisPort = configService.get<number>('REDIS_PORT');
     const redisPassword = configService.get<string>('REDIS_PASSWORD');
 
-    console.log('Redis Config Values:');
-    console.log('  Host:', redisHost);
-    console.log('  Port:', redisPort);
-    console.log('  Has Password:', !!redisPassword);
-    console.log('');
+    console.log('\n🔧 Redis Config:', {
+      host: redisHost,
+      port: redisPort,
+      hasPassword: !!redisPassword,
+    });
 
     const store = await redisStore({
       socket: {
         host: redisHost,
-        port: redisPort,
+        port: Number(redisPort) || 6379,
       },
-      password: redisPassword,
+      password: redisPassword || undefined,
     });
 
-    console.log('✅ Redis store created:', store.constructor.name);
-    console.log('========================================\n');
-
-    return { store };
+    console.log('✅ Redis store created successfully\n');
+    return { 
+      store,
+      ttl: 60 * 60 * 1000, // 1 hour in milliseconds
+    };
   },
 };
