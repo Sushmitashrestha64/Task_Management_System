@@ -17,18 +17,30 @@ export const cacheConfig: CacheModuleAsyncOptions = {
       hasPassword: !!redisPassword,
     });
 
-    const store = await redisStore({
-      socket: {
-        host: redisHost,
-        port: Number(redisPort) || 6379,
-      },
-      password: redisPassword || undefined,
-    });
+    try {
+      const store = await redisStore({
+        socket: {
+          host: redisHost,
+          port: Number(redisPort) || 6379,
+        },
+        password: redisPassword || undefined,
+      });
 
-    console.log('✅ Redis store created successfully\n');
-    return { 
-      store,
-      ttl: 60 * 60 * 1000, // 1 hour in milliseconds
-    };
+      console.log('✅ Redis store created successfully');
+      console.log('📦 Store type:', store.constructor.name);
+      console.log('🔗 Using cache-manager-redis-yet with actual Redis connection\n');
+      
+      return { 
+        store,
+        ttl: 60 * 60 * 1000, // 1 hour in milliseconds
+      };
+    } catch (error) {
+      console.error('❌ Failed to create Redis store:', error.message);
+      console.warn('⚠️  Falling back to IN-MEMORY cache (not Redis)\n');
+      // If Redis fails, return without store (uses in-memory)
+      return {
+        ttl: 60 * 60 * 1000,
+      };
+    }
   },
 };
