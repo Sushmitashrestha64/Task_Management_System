@@ -7,6 +7,9 @@ import { Auth } from 'src/common/decorators/auth.decorator';
 import { ProjectRole } from 'src/projects/entity/project-member.entity';
 import { PaginationDto } from 'src/common/dto/pagination.dto';
 import { CreateCommentDto } from './dto/comment.dto';
+import { TaskFilterDto } from './dto/task-filter.dto';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { UseInterceptors, UploadedFile, ParseFilePipe, MaxFileSizeValidator,  FileValidator } from '@nestjs/common';
 
 
 @ApiTags('Tasks')
@@ -60,12 +63,12 @@ export class TasksController {
 
   @Auth()
   @Get('project/:projectId')
-  @ApiOperation({ summary: 'Get paginated tasks for a project' })
+  @ApiOperation({ summary: 'Search and Filter tasks within a project' })
   async getProjectTasks(
     @Param('projectId') projectId: string,
-    @Query() paginationDto: PaginationDto,
+    @Query() filterDto: TaskFilterDto,
   ) {
-    return this.tasksService.getProjectTasks(projectId, paginationDto);
+    return this.tasksService.getProjectTasks(projectId, filterDto);
   }
 
   @Auth()
@@ -94,5 +97,47 @@ export class TasksController {
     @User('userId') userId: string,
   ) {
     return this.tasksService.deleteComment(commentId, userId);
+  }
+
+  @Auth(ProjectRole.ADMIN, ProjectRole.PROJECT_MANAGER, ProjectRole.LEAD, ProjectRole.MEMBER)
+  @Post(':taskId/upload')
+  @ApiOperation({ summary: 'Upload an attachment to a task' })
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadFile(
+    @Param('taskId') taskId: string,
+    @User('userId') userId: string,
+    @UploadedFile(
+      new ParseFilePipe({
+        validators: [
+          new MaxFileSizeValidator({ maxSize: 1024 * 1024 * 15 }), 
+          new (class extends FileValidator<any> {
+            constructor() {
+              super({});
+            }
+            async isValid(file: any): Promise<boolean> {
+              if (!file || !file.mimetype) return false;
+              const allowedTypes = [
+                'image/jpeg', 'image/jpg', 'image/png','application/pdf',
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+              ];
+              return allowedTypes.includes(file.mimetype);
+            }
+            buildErrorMessage(): string {
+              return 'Invalid file type. Allowed types are JPEG, JPG, PNG, PDF, DOCX and XLSX.';
+            }
+          })(),
+        ],
+      }),
+    ) file: Express.Multer.File,
+  ) {
+    return this.tasksService.uploadAttachment(taskId, userId, file);
+  }
+
+  @Auth()
+  @Get(':taskId/attachments')
+  @ApiOperation({ summary: 'Get all attachments for a task' })
+  async getAttachments(@Param('taskId') taskId: string) {
+    return this.tasksService.getTaskAttachments(taskId);
   }
 }

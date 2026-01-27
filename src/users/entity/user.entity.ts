@@ -2,7 +2,7 @@
 import { ProjectMember } from "../../projects/entity/project-member.entity";
 import { Project } from "../../projects/entity/project.entity";
 import { Task } from "../../tasks/entity/task.entity";
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany, Index } from 'typeorm';
 
 export enum UserStatus {
   ACTIVE = 'ACTIVE',
@@ -45,6 +45,7 @@ export class User {
   @UpdateDateColumn()
   updatedAt: Date;
 
+  @Index()
   @Column({ nullable: true, select: false })
   refreshToken: string;
 }

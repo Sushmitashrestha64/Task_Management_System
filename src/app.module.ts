@@ -4,7 +4,7 @@ import configuration from './config/configuration';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CACHE_MANAGER, CacheModule } from '@nestjs/cache-manager';
 import type { Cache } from 'cache-manager';
-import { redisStore } from 'cache-manager-redis-yet'; // Use redisStore
+
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
@@ -26,6 +26,10 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ActivityLogModule } from './activity-log/activity-log.module';
 import { ActivityLog } from './activity-log/entity/activity-log.entity';
 import { cacheConfig } from './config/redis.config';
+import { ThrottlerModule , ThrottlerGuard} from '@nestjs/throttler';
+import { APP_FILTER, APP_GUARD } from '@nestjs/core';
+import { AllExceptionsFilter } from './common/filters/http-exception.filter';
+
 
 @Module({
   imports: [
@@ -70,6 +74,10 @@ import { cacheConfig } from './config/redis.config';
         ssl: configService.get<string>('NODE_ENV') === 'production' ? { rejectUnauthorized: false } : false,
       }),
     }),
+    ThrottlerModule.forRoot([{
+      ttl: 60000,
+      limit: 100,
+    }]),
     CacheModule.registerAsync(cacheConfig),
     AuthModule,
     UsersModule,
@@ -81,7 +89,10 @@ import { cacheConfig } from './config/redis.config';
     ActivityLogModule,
   ],
   controllers: [AppController],
-  providers: [AppService, CleanupService],
+  providers: [AppService, CleanupService,
+    { provide: APP_GUARD, useClass: ThrottlerGuard},
+    { provide: APP_FILTER, useClass: AllExceptionsFilter }, 
+  ],
 })
 export class AppModule implements NestModule, OnModuleInit {
   private readonly logger = new Logger(AppModule.name);

@@ -5,5 +5,6 @@ import { B2Controller } from './b2.controller';
 @Module({
   controllers: [B2Controller],
   providers: [B2Service],
+  exports: [B2Service],
 })
 export class B2Module {}

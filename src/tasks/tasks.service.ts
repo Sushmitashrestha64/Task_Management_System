@@ -1,7 +1,7 @@
 import { ForbiddenException, forwardRef, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Task } from './entity/task.entity';
-import { Repository } from 'typeorm';
+import { Repository, ILike } from 'typeorm';
 import { CreateTaskDto, UpdateTaskDto, UpdateTaskStatusDto } from './dto/task.dto';
 import { ProjectsService } from 'src/projects/projects.service';
 import { ProjectRole } from 'src/projects/entity/project-member.entity';
@@ -12,6 +12,9 @@ import { TaskComment } from './entity/comment.entity';
 import { CreateCommentDto } from './dto/comment.dto';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ActivityAction } from 'src/activity-log/entity/activity-log.entity';
+import { TaskFilterDto } from './dto/task-filter.dto';
+import { TaskAttachment } from './entity/attachment.entity';
+import { B2Service } from 'src/b2/b2.service';
 
 
 @Injectable()
@@ -19,9 +22,11 @@ export class TasksService {
     constructor(
         @InjectRepository(Task) private readonly taskRepo: Repository<Task>,
         @InjectRepository(TaskComment) private readonly commentRepo: Repository<TaskComment>,
+        @InjectRepository(TaskAttachment) private readonly attachmentRepo: Repository<TaskAttachment>,
         @Inject(forwardRef(() => ProjectsService)) private readonly projectsService: ProjectsService,
         @Inject(CACHE_MANAGER) private cacheManager: Cache,
         private readonly eventEmitter: EventEmitter2,
+        private readonly b2Service: B2Service,
     ) {}
 
     async createTask(dto: CreateTaskDto, userId: string): Promise<Task> {
@@ -41,7 +46,7 @@ export class TasksService {
         });
         
         if (dto.assignedToId) {
-        await this.cacheManager.del(`user_tasks_assigned:${dto.assignedToId}`);
+        await this.invalidateTaskCache(savedTask.taskId, dto.projectId, dto.assignedToId);
         }
         return savedTask;
     }
@@ -73,7 +78,7 @@ export class TasksService {
             action: ActivityAction.TASK_UPDATED,
             details: `Updated task "${updatedTask.title}"`,
         });
-        await this.cacheManager.del(`task_detail:${taskId}`);
+        await this.invalidateTaskCache(taskId, task.projectId, task.assignedToId);
         return updatedTask;
     }
 
@@ -96,7 +101,7 @@ export class TasksService {
                 details: `Updated status of task "${updatedTask.title}" to "${updatedTask.status}"`,
             });
 
-            await this.cacheManager.del(`task_detail:${taskId}`);
+            await this.invalidateTaskCache(taskId, task.projectId, task.assignedToId);
             return updatedTask;
         } else {
             throw new ForbiddenException('You do not have permission to update the task status');
@@ -116,7 +121,7 @@ export class TasksService {
             action: ActivityAction.TASK_DELETED,
             details: `Soft deleted task "${task.title}"`,
         });
-        await this.cacheManager.del(`task_detail:${taskId}`);
+        await this.invalidateTaskCache(taskId, task.projectId, task.assignedToId);
         return{ message: 'Task soft-deleted successfully'};
     }
 
@@ -175,23 +180,35 @@ export class TasksService {
         return tasks;
   }
 
-  async getProjectTasks(projectId: string, pagination:PaginationDto){
-    const { page=1, limit=10 } = pagination;
+  async getProjectTasks(projectId: string, filterDto: TaskFilterDto){
+    const { page=1, limit=10, search, status, priority } = filterDto;
     const skip = (page - 1) * limit;
-    const cacheKey = `project_tasks_${projectId}_p${page}_l${limit}`;
-    const cachedData= await this.cacheManager.get<{data: Task[], meta: {total: number, page: number, lastPage: number}}>(cacheKey);
+    const cacheKey = `project_tasks:${projectId}:p${page}:l${limit}:search_${search || 'none'}:status_${status || 'all'}:priority_${priority || 'all'}`;
+    const cachedData= await this.cacheManager.get(cacheKey);
     if (cachedData) {
         return cachedData;
     }
-    const [tasks, total] = await this.taskRepo.findAndCount({
-        where: { projectId, isDeleted: false },
-        relations: ['assignedTo'],
-        order: { createdAt: 'DESC' },
-        skip,
-        take: limit,
-    });
 
-    return{
+    const query = this.taskRepo.createQueryBuilder('task')
+      .leftJoinAndSelect('task.assignedTo', 'user')
+      .where('task.projectId = :projectId', { projectId })
+      .andWhere('task.isDeleted = :isDeleted', { isDeleted: false });
+
+    if (search) {
+        query.andWhere('task.title ILike :search', { search: `%${search}%` });
+    }
+    if (status) {
+        query.andWhere('task.status = :status', { status });
+    }
+    if (priority) {
+        query.andWhere('task.priority = :priority', { priority });
+    }
+    const [tasks, total] = await query
+        .orderBy('task.createdAt', 'DESC')
+        .skip(skip)
+        .take(limit)
+        .getManyAndCount();
+    const result = {
         data: tasks,
         meta:{
             total,
@@ -199,8 +216,10 @@ export class TasksService {
             lastPage: Math.ceil(total/limit),
         },
     };
+    await this.cacheManager.set(cacheKey, result, 1800);
+    return result;
   }
-  
+
   async addComment(taskId: string, userId:string, dto: CreateCommentDto) {
     const task = await this.getTaskById(taskId);
     const comment = this.commentRepo.create({
@@ -255,5 +274,50 @@ export class TasksService {
     return { message: 'Comment deleted successfully' };
   }
 
+  async uploadAttachment(taskId: string, userId: string, file: Express.Multer.File){
+    const task = await this.getTaskById(taskId);
+    const cloudPath = `attachments/${taskId}/${Date.now()}_${file.originalname}`;
+    const uploadResult = await this.b2Service.uploadBuffer(
+        file.buffer, 
+        cloudPath, 
+        file.mimetype
+    );
+ 
+    const downloadUrl = await this.b2Service.getDownloadUrl(uploadResult.fileName);
+    const attachment = this.attachmentRepo.create({
+        fileName: file.originalname,
+        fileUrl: downloadUrl,
+        mimeType: file.mimetype,
+        fileSize: file.size,
+        taskId: task.taskId,
+        uploaderId: userId,
+    });
+ 
+    const savedAttachment = await this.attachmentRepo.save(attachment);     
+    this.eventEmitter.emit('project.activity', {
+        projectId: task.projectId,
+        userId: userId,
+        action: ActivityAction.TASK_UPDATED,
+        details: `Uploaded attachment to task "${task.title}"`,
+    });
+    await this.invalidateTaskCache(taskId, task.projectId, task.assignedToId);
+    return savedAttachment;
+  }
+
+  async getTaskAttachments(taskId: string){
+    const attachments = await this.attachmentRepo.find({
+        where: { taskId }
+    });
+    return attachments;
+  }
+  
+  private async invalidateTaskCache(taskId: string, projectId: string, userId?: string) {
+    await this.cacheManager.del(`task_detail:${taskId}`);
+    const defaultProjectKey = `project_tasks:${projectId}:p1:l10:search_none:status_all:priority_all`;
+    await this.cacheManager.del(defaultProjectKey);
+        if (userId) {
+            await this.cacheManager.del(`user_tasks_assigned:${userId}_p1_l10`);
+        }
+   }
 
 }

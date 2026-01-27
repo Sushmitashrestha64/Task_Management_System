@@ -4,12 +4,14 @@ import { OtpService } from './otp.service';
 import { GenerateOtpDto } from './dto/generate-otp.dto';
 import { ResendOtpDto } from './dto/resent-otp.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
+import { Throttle } from '@nestjs/throttler';
 
 @ApiTags('OTP')
 @Controller('otp')
 export class OtpController {
   constructor(private readonly otpService: OtpService) {}
 
+  @Throttle({ default: { limit: 3, ttl: 600000 } })
   @Post('generate')
   @ApiBody({ type: GenerateOtpDto })
   async generateOtp(@Body() generateOtpDto: GenerateOtpDto) {

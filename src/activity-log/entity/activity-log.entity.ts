@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, JoinColumn, UpdateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, JoinColumn, UpdateDateColumn, Index } from 'typeorm';
 import { User } from '../../users/entity/user.entity';
 import { Project } from '../../projects/entity/project.entity';
 
@@ -20,6 +20,7 @@ export enum ActivityAction {
 }
 
 @Entity('activity_logs')
+@Index(['projectId', 'createdAt'])
 export class ActivityLog {
   @PrimaryGeneratedColumn('uuid')
   loggerid: string;

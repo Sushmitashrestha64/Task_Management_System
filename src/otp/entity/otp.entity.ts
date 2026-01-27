@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, Index } from 'typeorm';
 
 @Entity('otps')
 export class Otp {
@@ -17,6 +17,7 @@ export class Otp {
   @CreateDateColumn()
   createdAt: Date;
 
+  @Index()
   @Column()
   expiresAt: Date;
 }

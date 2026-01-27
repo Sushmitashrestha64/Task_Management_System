@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany, ManyToOne, JoinColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany, ManyToOne, JoinColumn, Index } from 'typeorm';
 import { ProjectMember } from './project-member.entity';
 import { Task } from '../../tasks/entity/task.entity';
 import { User } from '../../users/entity/user.entity';
@@ -9,6 +9,7 @@ export enum Visibility {
 }
 
 @Entity('projects')
+@Index(['ownerId', 'isDeleted'])
 export class Project {
   @PrimaryGeneratedColumn('uuid')
   projectId: string;

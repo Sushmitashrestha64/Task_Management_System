@@ -1,6 +1,6 @@
 import { Project } from "../../projects/entity/project.entity";
 import { User } from "../../users/entity/user.entity";
-import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
+import { Column, CreateDateColumn, Entity, Index, JoinColumn, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 
 export enum TaskStatus {
   TODO = 'TODO',
@@ -23,6 +23,8 @@ export enum Severity {
 }
 
 @Entity('tasks')
+@Index(['projectId', 'isDeleted'])
+@Index(['assignedToId', 'isDeleted'])
 export class Task {
   @PrimaryGeneratedColumn('uuid')
   taskId: string;

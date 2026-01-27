@@ -62,7 +62,8 @@ export class ProjectsService {
     const  cacheKey = `user_projects_${userId}_p${page}_l${limit}`;
     const cachedProjects= await this.cacheManager.get<{data: Project[], meta: {total: number, page: number, lastPage: number}}>(cacheKey);
     if (cachedProjects) {
-        return cachedProjects;
+      console.log('Returning projects from cache with key:', cacheKey);
+      return cachedProjects;
     }
     const [projects, total] = await this.projectRepo.createQueryBuilder('project')
       .leftJoin('project.members', 'membership', 'membership.userId = :userId', { userId })

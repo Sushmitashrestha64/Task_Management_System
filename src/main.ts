@@ -3,9 +3,12 @@ import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import cookieParser from 'cookie-parser';
+import { ResponseInterceptor } from './common/interceptors/response.interceptors';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  app.enableShutdownHooks();
+  app.useGlobalInterceptors(new ResponseInterceptor());
   app.use(cookieParser());
   
   app.enableCors({

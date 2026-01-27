@@ -1,5 +1,5 @@
 import { User } from '../../users/entity/user.entity';
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Unique, ManyToOne, JoinColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, Unique, ManyToOne, JoinColumn, Index } from 'typeorm';
 import { Project } from './project.entity';
 
 export enum ProjectRole {
@@ -18,7 +18,8 @@ export class ProjectMember {
 
   @Column({ type: 'uuid' })
   userId: string;
-
+  
+  @Index()
   @Column({ type: 'uuid' })
   projectId: string;
 
