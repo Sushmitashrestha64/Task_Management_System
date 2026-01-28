@@ -5,7 +5,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { CACHE_MANAGER, CacheModule } from '@nestjs/cache-manager';
 import type { Cache } from 'cache-manager';
 
-import { AppController } from './app.controller';
+import { AppController, HealthController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
@@ -88,7 +88,7 @@ import { AllExceptionsFilter } from './common/filters/http-exception.filter';
     B2Module,
     ActivityLogModule,
   ],
-  controllers: [AppController],
+  controllers: [AppController,HealthController],
   providers: [AppService, CleanupService,
     { provide: APP_GUARD, useClass: ThrottlerGuard},
     { provide: APP_FILTER, useClass: AllExceptionsFilter }, 
