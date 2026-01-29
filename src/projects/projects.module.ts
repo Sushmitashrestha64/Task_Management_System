@@ -8,6 +8,8 @@ import { JwtModule } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { TasksModule } from 'src/tasks/tasks.module';
 import { User } from 'src/users/entity/user.entity';
+import { Auth } from 'src/common/decorators/auth.decorator';
+import { AuthModule } from 'src/auth/auth.module';
 
 @Module({
   imports: [TypeOrmModule.forFeature([Project, ProjectMember, User]),
@@ -19,6 +21,7 @@ import { User } from 'src/users/entity/user.entity';
       }),
     }),
    forwardRef(() => TasksModule),
+   forwardRef(() => AuthModule)
   ],
   controllers: [ProjectsController],
   providers: [ProjectsService],
